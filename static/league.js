@@ -63,7 +63,7 @@ function LeagueHome(props) {
                     <button className='btn-close btn-close' onClick={closeLeague}></button>
                     Welcome!
                     {teams.map(team => <TeamBox team={team}/>)}
-                    {invites.map(invite => <p>{invite.Name}</p>)}
+                    {invites.map(invite => <p>{invite.name}</p>)}
                     <InviteBox invite={null} commissioner={commissioner} user={props.user} league={leagueProps.id} />
                 </div>        
             )
@@ -89,10 +89,10 @@ function InviteBox(props) {
         e.preventDefault()
         setInvitee(e.target.value)
     }
-    function invite(e){
+    const invite = (e) => {
         e.preventDefault()
         //Do a little verification on the front end.
-        if (props.user != props.commissioner) {
+        if (props.user.id != props.commissioner.id) {
             return null
         }
         let csrftoken = document.getElementById('CSRFToken').textContent
@@ -102,10 +102,10 @@ function InviteBox(props) {
                 'X-CSRF-TOKEN': csrftoken,
                 'Content-Type': 'Application/json'    
             },
-            body: {"user": props.user, "invitee": invitee, "league": props.league}
+            body: JSON.stringify({"user": props.user, "invitee": invitee, "league": props.league})
         })
         .then(response=>response.json())
-        .then(data => data)
+        .then(data => setCompleteInvite(data))
         .catch(error => console.error(error))
     }
 
@@ -120,15 +120,15 @@ function InviteBox(props) {
     if (completeInvite === null) {
         return (
             <div>
-                <form>
-                    <input type='text' placeholder="username or email" onChange={handleChange}></input>
+                <form onSubmit={invite}>
+                    <input type='email' placeholder="email" onChange={handleChange}></input>
                     <button type='submit'>Invite!</button>
                 </form>
             </div>)
     } else {
         return (
             <div>
-                {props.invite.name - (props.invite.manager)}
+                {completeInvite.name - (completeInvite.manager)}
             </div>
         )
     }   

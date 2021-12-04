@@ -590,9 +590,9 @@ func LeagueHome(c *gin.Context) {
 //league the invite points to.  We also need to verify the user making the request is the commissioner.
 func InviteUser(c *gin.Context) {
 	type Invite struct {
-		User    AccountInfo `json:"user"`
-		Invitee string      `json:"invitee"`
-		League  int64       `json:"league,string"`
+		User    AccountInfo `json:"user" form:"user" binding:"required"`
+		Invitee string      `json:"invitee" form:"invitee"`
+		League  int64       `json:"league" form:"league"`
 	}
 	var v Invite
 	if c.BindJSON(&v) != nil {
@@ -647,6 +647,7 @@ func InviteUser(c *gin.Context) {
 
 			//TODO: SEND EMAIL TO GET USER TO REGISTER
 			c.JSON(http.StatusOK, AccountInfo{ID: 0, Name: "Unregistered", Email: v.Invitee})
+			return
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad scan", "ok": false})
 		fmt.Println("didn't scan")
