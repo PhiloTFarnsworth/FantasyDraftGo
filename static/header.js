@@ -1,18 +1,19 @@
-const { useState, useEffect } = React;
-
+const { useState, useEffect, useContext } = React;
 function Welcome(props) {
-    if (props.user === '') {
+    const User = useContext(UserContext)
+    if (User.name === '') {
         return <p className='text-white text-center mt-3'>Welcome Guest!</p>
     }
-    return <p className='text-white text-center mt-3'>Welcome {props.user}!</p>
+    return <p className='text-white text-center mt-3'>Welcome {User.name}!</p>
 }
 
 function Header(props) {
+    const User = useContext(UserContext)
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
             <div className='container-fluid text-center'>
             <div className='col'>
-            <Welcome user={props.user.name}/>
+            <Welcome />
             </div>
             <div className='col-6'>
                 <a className='navbar-brand' href=''>
@@ -20,9 +21,9 @@ function Header(props) {
                 </a>
             </div>
             <div className='col'>
-                {props.user.id === '0' ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
+                {User.id === '0' ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
             </div>
             </div>
-        </nav>                
+        </nav>
     )
 }

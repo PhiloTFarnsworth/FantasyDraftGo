@@ -1,5 +1,4 @@
-const { useState, useEffect } = React;
-
+const { useState, useEffect, useContext } = React;
 //The Lobby layer is where we want to house the general user interface.  While Lobby's main purpose is to funnel a user
 //to a specific League, features like user settings (dark mode?) and general account messaging (Likely a bot to send messages
 //informing users of invites to leagues) are a good fit for this layer.  While we're focusing primarily on a single type of
@@ -7,6 +6,8 @@ const { useState, useEffect } = React;
 function Lobby(props) {
     const [focus, setFocus] = useState('')
     const [leagueID, setLeagueID] = useState(0)
+
+    const Notify = useContext(NotifyContext)
 
     //Reset focus when leagueID changes.
     useEffect(() => {
@@ -16,7 +17,7 @@ function Lobby(props) {
     if (leagueID != 0) {
         return(
             <div className='container'>
-                <LeagueHome openLeague={setLeagueID} ID={leagueID} user={props.user}/>
+                <LeagueHome openLeague={setLeagueID} ID={leagueID}/>
             </div>
         )
     }
@@ -25,8 +26,8 @@ function Lobby(props) {
     //but no reason we should redo it each time we shift focus.
     return(
         <div className='container'>
-            {focus == "wizard" ? '' : <LeagueDirectory inFocus={setFocus} openLeague={setLeagueID} user={props.user}/>}
-            {focus == "directory"? '' : <LeagueWizard inFocus={setFocus} openLeague={setLeagueID} user={props.user}/>}
+            {focus == "wizard" ? '' : <LeagueDirectory inFocus={setFocus} openLeague={setLeagueID}/>}
+            {focus == "directory"? '' : <LeagueWizard inFocus={setFocus} openLeague={setLeagueID}/>}
         </div>
     )
 
@@ -40,7 +41,7 @@ function LeagueDirectory(props) {
     const [invites, setInvites] = useState([])
     const [activeLeagues, setActiveLeagues] = useState([])
     const [activeView, setActiveView] = useState(true)
-
+    const User = useContext(UserContext)
 
     function toggleFocus(e) {
         e.preventDefault()
@@ -65,7 +66,7 @@ function LeagueDirectory(props) {
     }
 
     useEffect(() => {
-        let url = "/user/leagues/" + props.user.id 
+        let url = "/user/leagues/" + User.id 
         fetch(url, {method: "GET"})
         .then(response => response.json())
         .then(data => {
@@ -95,11 +96,6 @@ function LeagueDirectory(props) {
         //We'll fetch a post request to our server, sending user data and league id.
     }
 
-    function gotoLeague(e) {
-        e.preventDefault()
-        props.openLeague(e.target.id)
-    }
-
 
 
     if (!open) {
@@ -120,26 +116,72 @@ function LeagueDirectory(props) {
         <div>
             <button className='btn-close btn-close' onClick={toggleFocus}></button>
             <div>
-                {activeView ? 
+                {activeView ?
+                    <div> 
                     <div className='btn-group' role='group' aria-label='Active/Completed draft toggle'>         
                         <button className='btn btn-dark btn-sm' disabled>Leagues</button>
                         <button className='btn btn-warning btn-sm' onClick={activeToggle}>Invites</button>
-                    </div> :
+                    </div>
+                    <ActiveLeagues leagues={leagues} openLeague={props.openLeague}/>
+                    </div> 
+                    :
+                    <div>
                     <div className='btn-group' role='group'>
                         <button className='btn btn-warning btn-sm' onClick={activeToggle}>Leagues</button>
                         <button className='btn btn-dark btn-sm' disabled>Invites</button>
                     </div>
-                }
-                {leagues.map(league=>
-                    <div>
-                        <p>{league.Name}</p> 
-                        <button id={league.ID} onClick={gotoLeague}>Go to league</button>
+                    <Invitations leagues={leagues} openLeague={props.openLeague} />
                     </div>
-                )}
+                }
             </div>
         </div>
     )
+}
 
+function ActiveLeagues(props) {
+    function openLeague(e) {
+        e.preventDefault()
+        props.openLeague(e.target.id)
+    }
+
+    return(
+        <div>
+        {props.leagues.map(league => 
+            <div>
+                <button id={league.ID} onClick={openLeague}> Go to {league.Name}</button>
+            </div>
+        )}
+        </div>
+    )
+}
+
+function Invitations(props) {
+    const [selection, setSelection] = useState(0)
+
+    function selectInvite(e) {
+        e.preventDefault()
+        setSelection(e.target.id)
+    }
+
+    function clearSelection() {
+        setSelection(0)
+    }
+
+    if (selection === 0) {
+        return(
+            <div>
+                {props.leagues.map(league => 
+                    <div>
+                        <button id={league.ID} onClick={selectInvite}>Join League {league.Name}</button>
+                    </div>
+                    )}
+            </div>
+        )}
+
+    return(
+        <TeamWizard openLeague={props.openLeague} league={selection} close={clearSelection}/>
+    )
+    
 }
 
 //League wizard will be a simple interface for creating a fantasy league, where users can customize some aspects of the league.
@@ -148,10 +190,10 @@ function LeagueDirectory(props) {
 //draft rules), but until the draft the commissioner should have the ability to edit these values.
 function LeagueWizard(props) {
     const [open, setOpen] = useState(false)
-    const [ownerCount, setOwnerCount] = useState(1)
+    const [maxOwner, setMaxOwner] = useState(1)
     const [leagueName, setLeagueName] = useState('')
-    //Setting up the commissioner's team is probably not necessary on the first screen, but it feels appropriate.
     const [teamName, setTeamName] = useState('')
+    const User = useContext(UserContext)
     
     function toggleFocus(e) {
         e.preventDefault()
@@ -174,9 +216,9 @@ function LeagueWizard(props) {
         setLeagueName(e.target.value)
     }
 
-    function handleOwnerCount(e) {
+    function handleMaxOwner(e) {
         e.preventDefault()
-        setOwnerCount(e.target.value)
+        setMaxOwner(e.target.value)
     }
 
     //We want to create a league in our database, then we'll return the relevant league properties to the lobby level,
@@ -184,9 +226,9 @@ function LeagueWizard(props) {
     function createLeague(e) {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
-        fetch('/createLeague', {
+        fetch('/createleague', {
             method: 'POST',
-            body: JSON.stringify({ownerCount: ownerCount, league: leagueName, name: teamName, user: props.user}),
+            body: JSON.stringify({maxOwner: maxOwner, league: leagueName, name: teamName, user: User}),
             headers: {
                 'X-CSRF-TOKEN': csrftoken,
                 'Content-Type': 'Application/JSON'
@@ -212,12 +254,57 @@ function LeagueWizard(props) {
             <button className='btn-close btn-close' onClick={toggleFocus}></button>
             <h3>Create a League!</h3>
             <form onSubmit={createLeague}>
-            <input className='form-range' onChange={handleOwnerCount} type='range' min='1' max='14' value={ownerCount}></input>
-            <p>Teams: </p><h3>{ownerCount}</h3>
+            <input className='form-range' onChange={handleMaxOwner} type='range' min='1' max='14' value={maxOwner}></input>
+            <p>Teams: </p><h3>{maxOwner}</h3>
             <input type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required></input>
             <input type='text' className='form-control' onChange={handleLeagueName} placeholder='Name Your League!' required></input>
             <button className='btn btn-success' type='submit'> Start Draft! </button>
             </form>
         </div>
+    )
+}
+
+function TeamWizard(props) {
+    //We'll elevate this prop when a a user clicks an invite.  The user will name their team, and then be redirected to their
+    //new league's page.  As we add more customization options to teams this might expand, but for now it's very simple.
+    const [teamName, setTeamName] = useState("")
+    const User = useContext(UserContext)
+    const Notify = useContext(NotifyContext)
+
+    function handleChange(e) {
+        setTeamName(e.target.value)
+    }
+
+    function close(e) {
+        e.preventDefault()
+        props.close()
+    }
+
+    function submit(e) {
+        e.preventDefault()
+        let csrftoken = document.getElementById('CSRFToken').textContent
+        fetch("/joinleague", {method: "POST",
+        body: JSON.stringify({user: User.id, league: props.league, team: teamName}),
+        headers: {
+            'X-CSRF-TOKEN': csrftoken,
+            'Content-Type': 'Application/JSON'
+        }})
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok == false) {
+                Notify(data.error, 0)
+            } else {
+                props.openLeague(props.league)
+            }})
+        .catch(error => console.log(error))
+    }
+    
+    
+    return(
+        <form onSubmit={submit}>
+            <button onClick={close}>X</button>
+            <input type="text" onChange={handleChange} placeholder="Team Name" required></input>
+            <button type="submit"></button>
+        </form>
     )
 }

@@ -142,10 +142,13 @@ func engine() *gin.Engine {
 	r.POST("register", register)
 	r.POST("login", login)
 	r.GET("logout", logout)
-	r.POST("createLeague", createLeague)
+	r.POST("createleague", createLeague)
 	r.POST("invite", InviteUser)
 	r.GET("/user/leagues/:id", getLeagues)
 	r.GET("/league/home/:id", LeagueHome)
+	r.POST("joinleague", joinLeague)
+	r.POST("leagueSettings", leagueSettings)
+	r.POST("lockLeague", lockLeague)
 	return r
 }
 
@@ -314,6 +317,67 @@ func register(c *gin.Context) {
 		return
 	}
 
+	//Check for outstanding invites
+	rows, err := db.Query("SELECT league FROM invites_0 WHERE email=?", a.Email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			//cool, we're done here
+			c.JSON(http.StatusOK, userInfo)
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var leagueID int64
+		if err = rows.Scan(&leagueID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		//We got their outstanding leagues, we need to insert those league ids into invites_userid
+		//and the user ids into league_leagueid_invites
+		_, err = db.Exec("INSERT INTO invites_"+
+			strconv.FormatInt(userInfo.ID, 10)+
+			" (league) VALUES (?)", leagueID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		_, err = db.Exec("INSERT INTO league_"+
+			strconv.FormatInt(leagueID, 10)+
+			"_invites (user) VALUES (?)", userInfo.ID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		//With that, we can delete the entry in the invits_0 table
+		_, err = db.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagueID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		//Finally, we check if there are any more outstanding anonymous invites for the league.
+		var anonCount int64
+		row := db.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagueID)
+		if err = row.Scan(&anonCount); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if anonCount == 0 {
+			_, err = db.Exec("DELETE FROM league_"+
+				strconv.FormatInt(leagueID, 10)+
+				"_invites WHERE user=?", 0)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}
+
 	//All that done, we want to pass the user id back as a json response
 	c.JSON(http.StatusOK, userInfo)
 
@@ -322,13 +386,12 @@ func register(c *gin.Context) {
 func createLeague(c *gin.Context) {
 	session := sessions.Default(c)
 	type LeagueInitSettings struct {
-		OwnerCount int64       `json:"ownerCount,string"`
+		MaxOwner   int64       `json:"maxOwner,string"`
 		LeagueName string      `json:"league"`
 		TeamName   string      `json:"name"`
 		User       AccountInfo `json:"user"`
 	}
 	var s LeagueInitSettings
-
 	if c.BindJSON(&s) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Malformed Request"})
 		fmt.Println("Didn't assign values")
@@ -344,7 +407,7 @@ func createLeague(c *gin.Context) {
 	}
 
 	//So we haven't hit a problem yet.  Now we need to create a league for our user.
-	newLeague, err := db.Exec("INSERT INTO league (name, commissioner, ownerCount) VALUES (?,?,?)", s.LeagueName, s.User.ID, s.OwnerCount)
+	newLeague, err := db.Exec("INSERT INTO league (name, commissioner, maxOwner) VALUES (?,?,?)", s.LeagueName, s.User.ID, s.MaxOwner)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		fmt.Println(err)
@@ -513,12 +576,12 @@ func LeagueHome(c *gin.Context) {
 		Name         string
 		Commissioner AccountInfo
 		State        string
-		OwnerCount   int64
+		MaxOwner     int64
 	}
 	var f FullLeagueInfo
 	var err error
 
-	f.Commissioner.ID, err = strconv.ParseInt(c.Param("id"), 10, 64)
+	f.ID, err = strconv.ParseInt(c.Param("id"), 10, 64)
 	//check if number
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
@@ -526,10 +589,10 @@ func LeagueHome(c *gin.Context) {
 	}
 
 	//So let's start with some obvious stuff, we'll return
-	row := db.QueryRow(`SELECT league.id, league.name, league.state, league.ownerCount,
-		user.name, user.email FROM league JOIN user ON league.commissioner=user.id 
+	row := db.QueryRow(`SELECT league.name, league.state, league.maxOwner,
+		user.id, user.name, user.email FROM league JOIN user ON league.commissioner=user.id 
 		WHERE league.id = ?`, c.Param("id"))
-	if err := row.Scan(&f.ID, &f.Name, &f.State, &f.OwnerCount, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
+	if err := row.Scan(&f.Name, &f.State, &f.MaxOwner, &f.Commissioner.ID, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
@@ -543,10 +606,8 @@ func LeagueHome(c *gin.Context) {
 		Manager AccountInfo
 	}
 	var teams []TeamInfo
-	teamsName := "teams_" + strconv.FormatInt(f.ID, 10)
-
-	rows, err := db.Query("SELECT t.id, t.name, user.id, user.name, user.email FROM " +
-		teamsName +
+	rows, err := db.Query("SELECT t.id, t.name, user.id, user.name, user.email FROM teams_" +
+		strconv.FormatInt(f.ID, 10) +
 		" AS t JOIN user ON t.manager=user.id")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
@@ -561,28 +622,48 @@ func LeagueHome(c *gin.Context) {
 		}
 		teams = append(teams, t)
 	}
-
-	//Get Invites
-	var invites []AccountInfo
-	leagueInvitesName := "league_" + strconv.FormatInt(f.ID, 10) + "_invites"
-	rows, err = db.Query("SELECT user.id, user.name, user.email FROM " +
-		leagueInvitesName +
-		" AS i JOIN user ON i.user=user.id")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	for rows.Next() {
-		var a AccountInfo
-		if err := rows.Scan(&a.ID, &a.Name, &a.Email); err != nil {
+	//Get Invites (only if league is in INIT state)
+	if f.State == "INIT" {
+		var invites []AccountInfo
+		rows, err = db.Query("SELECT user.id, user.name, user.email FROM league_" +
+			strconv.FormatInt(f.ID, 10) +
+			"_invites AS i JOIN user ON i.user=user.id")
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
 		}
-		invites = append(invites, a)
+		defer rows.Close()
+		for rows.Next() {
+			var a AccountInfo
+			if err := rows.Scan(&a.ID, &a.Name, &a.Email); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				return
+			}
+			invites = append(invites, a)
+		}
+
+		rows, err = db.Query("SELECT email FROM invites_0 WHERE league=?", strconv.FormatInt(f.ID, 10))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var a AccountInfo
+			a.ID = 0
+			if err := rows.Scan(&a.Email); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				return
+			}
+			a.Name = a.Email
+			invites = append(invites, a)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"league": f, "teams": teams, "invites": invites})
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"league": f, "teams": teams, "invites": invites})
+	c.JSON(http.StatusOK, gin.H{"league": f, "teams": teams})
 }
 
 //Invite user will allow the commissioner to send invites to other users on the site, and probably eventually email unregistered
@@ -680,11 +761,136 @@ func InviteUser(c *gin.Context) {
 //at capacity and whether the user is on the invitation list to the league. If so, We register them with the league.  We'll
 //then reroute the user on the front-end to LeagueHome
 func joinLeague(c *gin.Context) {
+	type TeamSubmission struct {
+		User   int64  `json:"user,string"`
+		League int64  `json:"league,string"`
+		Team   string `json:"team"`
+	}
+	var t TeamSubmission
+	if c.BindJSON(&t) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
 
+	//Check leagues for maxOwner
+	var maxOwners int64
+	row := db.QueryRow("SELECT maxOwner FROM league WHERE id=?", t.League)
+	if err := row.Scan(&maxOwners); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	var ownerCount int64
+	row = db.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(t.League, 10))
+	if err := row.Scan(&ownerCount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	//Check if we've already got a full league (This should only happen if a gm invites all slots then shrinks the league)
+	if ownerCount >= maxOwners {
+		c.JSON(http.StatusBadRequest,
+			gin.H{"error": "Max teams in league reached.  Contact commissioner to increase team cap",
+				"ok": false})
+		return
+	}
+
+	//With that done, we can add the team to the league
+	_, err := db.Exec("INSERT INTO teams_"+
+		strconv.FormatInt(t.League, 10)+
+		" (name, manager) VALUES (?,?)", t.Team, t.User)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert teams_", "ok": false})
+		return
+	}
+
+	//And insert the league into leagues_userid
+	_, err = db.Exec("INSERT INTO leagues_"+
+		strconv.FormatInt(t.User, 10)+
+		" (league) VALUES (?)", t.League)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert leagues_", "ok": false})
+		return
+	}
+
+	//We're not done yet though, remove the invite from both invites tables
+	_, err = db.Exec("DELETE FROM league_"+
+		strconv.FormatInt(t.League, 10)+
+		"_invites WHERE user=?", t.User)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete league_#_invites", "ok": false})
+		return
+	}
+
+	_, err = db.Exec("DELETE FROM invites_"+
+		strconv.FormatInt(t.User, 10)+
+		" WHERE league=?", t.League)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete invites", "ok": false})
+		return
+	}
+
+	//With all that done, we can return a little thumbs up, and the component will update the league id.
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-func joinDraft(c *gin.Context) {
+//We need a path to change league settings.  Beyond allowing changing the number of users, we would want to see additional options,
+//such as choosing the scoring rules of the league, Free agent/waiver rules, league name, trade rules.  For now, let's concentrate
+//on changing team name and scoring rules.
+func leagueSettings(c *gin.Context) {
+	type LeagueSettings struct {
+		ID       int64  `json:"league"`
+		Name     string `json:"name"`
+		MaxOwner int64  `json:"maxOwner,string"`
+	}
+	var s LeagueSettings
+	session := sessions.Default(c)
+	if c.BindJSON(&s) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
 
+	//A little verification that we're getting the request from the commissioner
+	var commishID int64
+	userID := session.Get("userID").(int64)
+	row := db.QueryRow("SELECT commissioner FROM league WHERE id=?", s.ID)
+	if err := row.Scan(&commishID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	if userID != commishID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unauthorized Edit.", "ok": false})
+		return
+	}
+	fmt.Println(s)
+	//With that done, we can change the league values.
+	_, err := db.Exec("UPDATE league SET name=?, maxOwner=? WHERE id=?", s.Name, s.MaxOwner, s.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, s)
+}
+
+//Probably should be a general state shifting function, but for now, let's just lock league.  State shouldn't
+//effect settings, but there might be custom logic for the progression for our database like making the tables
+//read-only at "COMPLETE"
+func lockLeague(c *gin.Context) {
+
+	//TODO: FIGURE THIS ONE OuT THINKENSTEIN!
+	var leagueID int64
+	if c.ShouldBind(&leagueID) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
+	fmt.Println(leagueID)
+	_, err := db.Exec("UPDATE league SET state='DRAFT' WHERE id=?", leagueID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"state": "DRAFT"})
 }
 
 func connectDB() *sql.DB {

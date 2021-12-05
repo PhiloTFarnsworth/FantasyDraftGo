@@ -9,6 +9,6 @@ CREATE TABLE league (
     name VARCHAR(128) NOT NULL,
     commissioner INT NOT NULL,
     state ENUM('INIT', 'DRAFT', 'INPROGRESS', 'COMPLETE') DEFAULT 'INIT',
-    ownerCount TINYINT NOT NULL,
+    maxOwner TINYINT NOT NULL,
     primary key (`id`)
 )

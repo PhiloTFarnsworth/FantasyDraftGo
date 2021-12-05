@@ -4,6 +4,8 @@ function LoginForm(props) {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
 
+    const Notify = useContext(NotifyContext)
+
     const handleSubmit = (e) => {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
@@ -26,11 +28,11 @@ function LoginForm(props) {
                 let userObj = {'id': data.id, 'name': data.name, 'email': data.email}
                 props.onLogin(userObj)
             } else {
-                props.notify(data['error'], 0)
-                console.Error(data['error'])
+                Notify(data['error'], 0)
+                console.error(data['error'])
             }
         })
-        .catch(error => {console.Error('fail:', error)})
+        .catch(error => {console.error('fail:', error)})
     }
 
     const handleChange = (e) => {
@@ -65,6 +67,8 @@ function RegisterForm(props) {
     const [confirm, setConfirm] = useState('')
     const [email, setEmail] = useState('')
 
+    const Notify = useContext(NotifyContext)
+
     const handleChange = (e) => {
         e.preventDefault()
         if (e.target.name === 'username') {
@@ -81,7 +85,7 @@ function RegisterForm(props) {
     const handleSubmit = (e) => {
         e.preventDefault()
         if (password !== confirm) {
-            props.notify('Password and Password confirmation do not match!', 0)
+            Notify('Password and Password confirmation do not match!', 0)
         }
         let csrftoken = document.getElementById('CSRFToken').textContent
         let userData = {username: username, password: password, email: email}
@@ -99,11 +103,11 @@ function RegisterForm(props) {
                 let userObj = {'id': data.id, 'name': data.name, 'email': data.email}
                 props.onRegister(userObj)
             } else {
-                console.Error(data['error'])
-                props.notify(data['error'], 0)
+                console.error(data['error'])
+                Notify(data['error'], 0)
             }
         })
-        .catch(error => {console.Error('fail:', error)})
+        .catch(error => {console.error('fail:', error)})
         return false
     }
 
@@ -166,7 +170,6 @@ function LoginController(props) {
             <div className='row'>
                     <LoginForm
                     onLogin={props.onRegister}
-                    notify={props.notify} 
                     onDismiss={toggleLoginStatus}/>
             </div>
         )
@@ -177,7 +180,6 @@ function LoginController(props) {
             <div className='row'>
                     <RegisterForm
                     onRegister={props.onRegister}
-                    notify={props.notify}
                     onDismiss={toggleRegister} />
             </div>
         )
