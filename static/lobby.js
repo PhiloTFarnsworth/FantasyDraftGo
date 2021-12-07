@@ -147,7 +147,7 @@ function ActiveLeagues(props) {
     return(
         <div>
         {props.leagues.map(league => 
-            <div>
+            <div key={"active_" + league.ID}>
                 <button id={league.ID} onClick={openLeague}> Go to {league.Name}</button>
             </div>
         )}

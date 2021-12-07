@@ -10,5 +10,6 @@ CREATE TABLE league (
     commissioner INT NOT NULL,
     state ENUM('INIT', 'DRAFT', 'INPROGRESS', 'COMPLETE') DEFAULT 'INIT',
     maxOwner TINYINT NOT NULL,
+    kind ENUM('TRAD', 'TP', 'ALLPLAY', 'PIRATE', 'GUILLOTINE') DEFAULT 'TRAD',
     primary key (`id`)
 )

@@ -65,13 +65,12 @@ function LeagueHome(props) {
         let count = invites.length + teams.length
         if (count > leagueProps.maxOwner) {
             setOpenSpots(0)
-            if (data.league.Commissioner.id == User.id) {
+            if (commissioner.id == User.id) {
                 Notify("You have more Invites than open league slots.  Consider increasing the maximum number of owners in your league.", 0)
             }
         } else {
             setOpenSpots(leagueProps.maxOwner - count)
         }
-         
     }, [leagueProps])
 
 
@@ -88,7 +87,7 @@ function LeagueHome(props) {
                 'X-CSRF-TOKEN': csrftoken,
                 'Content-Type': 'Application/json'    
             },
-            body: leagueProps.id
+            body: JSON.stringify({league: leagueProps.id})
         })
         .then(response => response.json())
         .then(data => {
@@ -116,9 +115,9 @@ function LeagueHome(props) {
                     <button className='btn-close btn-close' onClick={closeLeague}></button>
                     Welcome!
                     <h1>{leagueProps.name}</h1>
-                    {teams.map(team => <TeamBox team={team}/>)}
-                    {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox invite={invite} /> : "")}
-                    {[...Array(openSpots)].map(() => <InviteBox invite={null} commissioner={commissioner} league={leagueProps.id}/>)}
+                    {teams.map(team => <TeamBox key={team.ID +"_team"} team={team}/>)}
+                    {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={"invite_" + i} invite={invite} /> : "")}
+                    {[...Array(openSpots)].map((x, i) => <InviteBox key={"anon_invite_"+i} invite={null} commissioner={commissioner} league={leagueProps.id}/>)}
                     {openSpots == 0 ? <button onClick={lockLeague}>Lock League</button> : ""}
                     <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps}/>
                 </div>        
@@ -131,7 +130,7 @@ function LeagueHome(props) {
 //Team Box should be a generic view of all top end team information.  
 function TeamBox(props) {
     return(
-        <div id={props.team.id + "_team"}>
+        <div  id={props.team.id + "_team"}>
             {props.team.Name} - {props.team.Manager.name} ({props.team.Manager.email})
         </div>
     )
@@ -165,7 +164,7 @@ function InviteBox(props) {
         })
         .then(response=>response.json())
         .then(data => { 
-            if (!data.ok) {
+            if (data.ok == false) {
                 Notify(data.error, 0)
             } else {
                 setCompleteInvite(data)
@@ -279,6 +278,7 @@ function LeagueSettings(props) {
             <form onSubmit={submit}>
                 <input name="leagueName" type="text" value={leagueName} onChange={handleChange}></input>
                 <input name="maxOwner" type="number" max="16" value={maxOwner} onChange={handleChange}></input>
+                <input name="kind" type="select"></input>
                 <button type="submit">Save Settings</button>
             </form>
         </div>
