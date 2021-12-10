@@ -90,13 +90,6 @@ function LeagueDirectory(props) {
         .catch(error => console.log("fail:",error))  
     }, [])
 
-    //use this for invites.
-    function joinLeague(e) {
-        e.preventDefault()
-        //We'll fetch a post request to our server, sending user data and league id.
-    }
-
-
 
     if (!open) {
         return(

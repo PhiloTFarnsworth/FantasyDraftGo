@@ -1,4 +1,4 @@
-package main
+package playerimport
 
 import (
 	"database/sql"
@@ -15,14 +15,14 @@ import (
 
 var db *sql.DB
 
-func main() {
+func Import() {
 	// Capture connection properties.
 	cfg := mysql.Config{
 		User:   os.Getenv("DBUSER"),
 		Passwd: os.Getenv("DBPASS"),
 		Net:    "tcp",
 		Addr:   "127.0.0.1:3306",
-		DBName: "FantasyDraftGo",
+		DBName: "fsgo",
 	}
 	// Get a database handle.
 	var err error

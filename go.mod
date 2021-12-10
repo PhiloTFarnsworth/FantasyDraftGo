@@ -1,4 +1,4 @@
-module experimental/FantasyDraftGO
+module github.com/PhiloTFarnsworth/FantasySportsAF
 
 go 1.17
 
