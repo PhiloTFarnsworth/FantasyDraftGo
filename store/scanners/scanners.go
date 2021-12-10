@@ -67,3 +67,17 @@ func (p *Player) ScanRow(r Row) error {
 		&p.PointPerReception,
 		&p.ValueBased)
 }
+
+type PlayerList struct {
+	Players []Player
+}
+
+// Implements RowScanner
+func (list *PlayerList) ScanRow(r Row) error {
+	var u Player
+	if err := u.ScanRow(r); err != nil {
+		return err
+	}
+	list.Players = append(list.Players, u)
+	return nil
+}

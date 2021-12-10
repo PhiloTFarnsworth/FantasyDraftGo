@@ -206,17 +206,30 @@ func register(c *gin.Context) {
 		return
 	}
 
+	//Commit this transaction here.  Since we need to access tables created, we'll commit them
+	//and then create a new transaction for the second half of this handler.
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
 	//Check for outstanding invites
-	rows, err := tx.Query("SELECT league FROM invites_0 WHERE email=?", a.Email)
+	var inviteCount int64
+	row := db.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE email=?", a.Email)
+	if err = row.Scan(&inviteCount); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	//No invites, commit transactions and return userinfo.
+	if inviteCount == 0 {
+		c.JSON(http.StatusOK, userInfo)
+		return
+	}
+
+	//For whatever reason we were getting hit with busy buffer errors, which may or may not have something to do with
+	//our open rows.  For expediency, we'll remove this part from the transaction and come back later
+	rows, err := db.Query("SELECT league FROM invites_0 WHERE email=?", a.Email)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//cool, we're done here
-			if err = tx.Commit(); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-			}
-			c.JSON(http.StatusOK, userInfo)
-			return
-		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -227,16 +240,17 @@ func register(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
 		//We got their outstanding leagues, we need to insert those league ids into invites_userid
 		//and the user ids into league_leagueid_invites
-		_, err = tx.Exec("INSERT INTO invites_"+
+		_, err = db.Exec("INSERT INTO invites_"+
 			strconv.FormatInt(userInfo.ID, 10)+
 			" (league) VALUES (?)", leagueID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		_, err = tx.Exec("INSERT INTO league_"+
+		_, err = db.Exec("INSERT INTO league_"+
 			strconv.FormatInt(leagueID, 10)+
 			"_invites (user) VALUES (?)", userInfo.ID)
 		if err != nil {
@@ -245,7 +259,7 @@ func register(c *gin.Context) {
 		}
 
 		//With that, we can delete the entry in the invits_0 table
-		_, err = tx.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagueID)
+		_, err = db.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagueID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -253,14 +267,14 @@ func register(c *gin.Context) {
 
 		//Finally, we check if there are any more outstanding anonymous invites for the league.
 		var anonCount int64
-		row := tx.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagueID)
+		row := db.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagueID)
 		if err = row.Scan(&anonCount); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		if anonCount == 0 {
-			_, err = tx.Exec("DELETE FROM league_"+
+			_, err = db.Exec("DELETE FROM league_"+
 				strconv.FormatInt(leagueID, 10)+
 				"_invites WHERE user=?", 0)
 			if err != nil {
@@ -270,10 +284,6 @@ func register(c *gin.Context) {
 		}
 	}
 
-	//commit
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-	}
 	//All that done, we want to pass the user id back as a json response
 	c.JSON(http.StatusOK, userInfo)
 }
@@ -382,6 +392,11 @@ func createLeague(c *gin.Context) {
 	}
 	//League Invites table
 	leagueInvitesName := "league_" + strconv.FormatInt(leagueID, 10) + "_invites"
+	_, err = tx.Exec("DROP TABLE IF EXISTS " + leagueInvitesName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
 	_, err = tx.Exec("CREATE TABLE " + leagueInvitesName + " (user INT NOT NULL)")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
