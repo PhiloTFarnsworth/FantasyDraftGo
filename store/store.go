@@ -3,8 +3,10 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -39,4 +41,26 @@ func ConnectDB(s string) {
 
 func GetDB() *sql.DB {
 	return db
+}
+
+//For testing purposes, we need a function that reads an .sql file and executes commands
+//into a database.  This mimics the sql client statement SOURCE.
+//https://stackoverflow.com/questions/38998267/how-to-execute-a-sql-file
+
+//Note: This implementation relies on comments not triggering an error when executed
+func BatchSQLFromFile(fileAddress string, db *sql.DB) error {
+	rawSQL, err := ioutil.ReadFile(fileAddress)
+	if err != nil {
+		return err
+	}
+	statements := strings.Split(string(rawSQL), ";")
+	for _, s := range statements {
+		if strings.TrimSpace(s) != "" {
+			_, err = db.Exec(s)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

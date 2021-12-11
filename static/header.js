@@ -12,17 +12,17 @@ function Header(props) {
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
             <div className='container-fluid text-center'>
-            <div className='col'>
-            <Welcome />
-            </div>
-            <div className='col-6'>
-                <a className='navbar-brand' href=''>
-                    Fantasy Draft
-                </a>
-            </div>
-            <div className='col'>
-                {User.id === '0' ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
-            </div>
+                <div className='col'>
+                    <Welcome />
+                </div>
+                <div className='col-6'>
+                    <a className='navbar-brand' href=''>
+                        Fantasy Draft
+                    </a>
+                </div>
+                <div className='col'>
+                    {User.id === '0' ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
+                </div>
             </div>
         </nav>
     )

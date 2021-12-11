@@ -9,29 +9,31 @@ function App() {
     //Since a nil number gets interpreted as a zero when we pass it in, and our sql indexes start at 1, we can use zero to stand in for
     //an anonymous user.  
     const [user, setUser] = useState(anonymousUser)
-    const [notification, SetNotification] = useState({message: null, code: null})
+    const [notification, SetNotification] = useState({ message: null, code: null })
     const [loading, setLoading] = useState(true)
-    
+
     function handleUserChange(userObj) {
         setUser(userObj)
     }
 
     function notify(message, code) {
-        SetNotification({message: message, code: code})
+        SetNotification({ message: message, code: code })
     }
 
     function clearNote() {
-        SetNotification({message: null, code: null})
+        SetNotification({ message: null, code: null })
     }
 
     function loaded() {
         setLoading(false)
     }
-    
+
     useEffect(() => {
-        const userObj = {'id': document.getElementById("userID").textContent,
+        const userObj = {
+            'id': parseInt(document.getElementById("userID").textContent),
             'name': document.getElementById("username").textContent,
-            'email': document.getElementById("userEmail").textContent} 
+            'email': document.getElementById("userEmail").textContent
+        }
         setUser(userObj)
         loaded()
     }, [])
@@ -44,10 +46,10 @@ function App() {
                 <NotifyContext.Provider value={notify}>
                     <div className="container">
                         <Header />
-                        <Notify note={notification} onClick={clearNote}/> 
+                        <Notify note={notification} onClick={clearNote} />
                         {user.id === "0" ? //Guest view or lobby
-                            <LoginController onRegister={handleUserChange}/> : 
-                            <Lobby />}                                                                               
+                            <LoginController onRegister={handleUserChange} /> :
+                            <Lobby />}
                     </div>
                 </NotifyContext.Provider>
             </UserContext.Provider>

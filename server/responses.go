@@ -28,7 +28,7 @@ type LogAccount struct {
 //We'll be storing this info in the session to access the user's information.  Our int ID will allow us to find all the tables associated with the
 //user, and we'll have the name string handy to publically identify the account.
 type AccountInfo struct {
-	ID    int64  `json:"id,string" form:"id,string"`
+	ID    int64  `json:"id" form:"id"`
 	Name  string `json:"name" form:"name"`
 	Email string `json:"email" form:"email"`
 }
@@ -36,15 +36,16 @@ type AccountInfo struct {
 func index(c *gin.Context) {
 	//Whenever anyone hits the index, we want to verify they have a user id
 	session := sessions.Default(c)
+
 	var user AccountInfo
-	if session.Get("userID") != nil {
-		user.ID = session.Get("userID").(int64)
-	}
 	if session.Get("user") != nil {
-		user.Name = session.Get("user").(string)
-	}
-	if session.Get("email") != nil {
-		user.Email = session.Get("email").(string)
+		user.ID = session.Get("user").(int64)
+		db := store.GetDB()
+		row := db.QueryRow("SELECT email, name FROM user WHERE id = ?", user.ID)
+		if err := row.Scan(&user.Email, &user.Name); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
 	}
 	c.HTML(http.StatusOK, "index.html", gin.H{"user": user, "CSRFToken": csrf.GetToken(c)})
 }
@@ -80,9 +81,7 @@ func login(c *gin.Context) {
 	userInfo.Name = a.Name
 	userInfo.Email = email
 	//With that, we can update the session
-	session.Set("user", a.Name)
-	session.Set("userID", userID)
-	session.Set("email", email)
+	session.Set("user", userID)
 	session.Save()
 	//fmt.Println(session.Get("user"))
 	c.JSON(http.StatusOK, userInfo)
@@ -92,8 +91,6 @@ func login(c *gin.Context) {
 func logout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Delete("user")
-	session.Delete("userID")
-	session.Delete("email")
 	session.Save()
 	c.Redirect(http.StatusFound, "/")
 }
@@ -156,27 +153,24 @@ func register(c *gin.Context) {
 		return
 	}
 
+	var userInfo AccountInfo
 	//Grab minted user's ID
-	id, err := newAccount.LastInsertId()
+	userInfo.ID, err = newAccount.LastInsertId()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		fmt.Println("bad id")
 		return
 	}
-
-	var userInfo AccountInfo
-	userInfo.ID = id
 	userInfo.Name = validName
 	userInfo.Email = a.Email
+
 	//Should update their session to indicate their user.  If we were passing more information, we might consider
 	//clearing the session keys, but at least for our cookie this is sufficient.
-	session.Set("user", validName)
-	session.Set("userID", id)
-	session.Set("email", a.Email)
+	session.Set("user", userInfo.ID)
 	session.Save()
 
 	//Create User-league reference table
-	refName := "leagues_" + strconv.FormatInt(id, 10)
+	refName := "leagues_" + strconv.FormatInt(userInfo.ID, 10)
 	//Get rid of any weird tables I may or may not be littering the database with.
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + refName)
 	if err != nil {
@@ -192,7 +186,7 @@ func register(c *gin.Context) {
 	}
 
 	//Create invites table for user
-	invitesName := "invites_" + strconv.FormatInt(id, 10)
+	invitesName := "invites_" + strconv.FormatInt(userInfo.ID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + invitesName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err})
@@ -206,29 +200,29 @@ func register(c *gin.Context) {
 		return
 	}
 
-	//Commit this transaction here.  Since we need to access tables created, we'll commit them
-	//and then create a new transaction for the second half of this handler.
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
 	//Check for outstanding invites
 	var inviteCount int64
-	row := db.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE email=?", a.Email)
+	row := tx.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE email=?", userInfo.Email)
 	if err = row.Scan(&inviteCount); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	//No invites, commit transactions and return userinfo.
 	if inviteCount == 0 {
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
 		c.JSON(http.StatusOK, userInfo)
 		return
 	}
 
-	//For whatever reason we were getting hit with busy buffer errors, which may or may not have something to do with
-	//our open rows.  For expediency, we'll remove this part from the transaction and come back later
-	rows, err := db.Query("SELECT league FROM invites_0 WHERE email=?", a.Email)
+	//We were getting a funny error from using the tx syntax while accessing these invites.  If you add another transaction
+	//while in the for rows.Next(), you'll overload the connection which will result in the transaction failing due to busy buffer.
+	//It took me a couple hours and a nap, but instead we grab the rows, allow rows.close to call after rows.next, then resume our
+	//transactions using a list of league ids returned.
+	var leagues []int64
+	rows, err := tx.Query("SELECT league FROM invites_0 WHERE email=?", userInfo.Email)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -240,18 +234,21 @@ func register(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		leagues = append(leagues, leagueID)
+	}
 
+	for i := 0; i < len(leagues); i++ {
 		//We got their outstanding leagues, we need to insert those league ids into invites_userid
 		//and the user ids into league_leagueid_invites
-		_, err = db.Exec("INSERT INTO invites_"+
+		_, err = tx.Exec("INSERT INTO invites_"+
 			strconv.FormatInt(userInfo.ID, 10)+
-			" (league) VALUES (?)", leagueID)
+			" (league) VALUES (?)", leagues[i])
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		_, err = db.Exec("INSERT INTO league_"+
-			strconv.FormatInt(leagueID, 10)+
+		_, err = tx.Exec("INSERT INTO league_"+
+			strconv.FormatInt(leagues[i], 10)+
 			"_invites (user) VALUES (?)", userInfo.ID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -259,7 +256,7 @@ func register(c *gin.Context) {
 		}
 
 		//With that, we can delete the entry in the invits_0 table
-		_, err = db.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagueID)
+		_, err = tx.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagues[i])
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -267,15 +264,15 @@ func register(c *gin.Context) {
 
 		//Finally, we check if there are any more outstanding anonymous invites for the league.
 		var anonCount int64
-		row := db.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagueID)
+		row := tx.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagues[i])
 		if err = row.Scan(&anonCount); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		if anonCount == 0 {
-			_, err = db.Exec("DELETE FROM league_"+
-				strconv.FormatInt(leagueID, 10)+
+			_, err = tx.Exec("DELETE FROM league_"+
+				strconv.FormatInt(leagues[i], 10)+
 				"_invites WHERE user=?", 0)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -284,6 +281,10 @@ func register(c *gin.Context) {
 		}
 	}
 
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
 	//All that done, we want to pass the user id back as a json response
 	c.JSON(http.StatusOK, userInfo)
 }
@@ -291,12 +292,13 @@ func register(c *gin.Context) {
 func createLeague(c *gin.Context) {
 	session := sessions.Default(c)
 	db := store.GetDB()
+
 	type LeagueInitSettings struct {
-		MaxOwner   int64       `json:"maxOwner,string"`
-		LeagueName string      `json:"league"`
-		TeamName   string      `json:"name"`
-		User       AccountInfo `json:"user"`
+		MaxOwner   int64  `json:"maxOwner,string"`
+		LeagueName string `json:"league"`
+		TeamName   string `json:"team"`
 	}
+
 	var s LeagueInitSettings
 	if c.BindJSON(&s) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Malformed Request"})
@@ -304,13 +306,7 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(s.User.ID)
-	fmt.Println(session.Get("userID").(int64))
-	//A little validation here
-	if s.User.ID != session.Get("userID").(int64) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Identity Crisis.  If you aren't mucking about with the client, log out and log back in."})
-		return
-	}
+	user := session.Get("user").(int64)
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -320,7 +316,7 @@ func createLeague(c *gin.Context) {
 	defer tx.Rollback()
 
 	//So we haven't hit a problem yet.  Now we need to create a league for our user.
-	newLeague, err := tx.Exec("INSERT INTO league (name, commissioner, maxOwner) VALUES (?,?,?)", s.LeagueName, s.User.ID, s.MaxOwner)
+	newLeague, err := tx.Exec("INSERT INTO league (name, commissioner, maxOwner) VALUES (?,?,?)", s.LeagueName, user, s.MaxOwner)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		fmt.Println(err)
@@ -404,14 +400,14 @@ func createLeague(c *gin.Context) {
 	}
 
 	//With Team Table created, we need to insert our first team.
-	_, err = tx.Exec("INSERT INTO "+teamTableName+" (name, manager) VALUES (?, ?)", s.TeamName, s.User.ID)
+	_, err = tx.Exec("INSERT INTO "+teamTableName+" (name, manager) VALUES (?, ?)", s.TeamName, user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
 	//With those set, we need to update the user's leagues table.
-	userLeagues := "leagues_" + strconv.FormatInt(s.User.ID, 10)
+	userLeagues := "leagues_" + strconv.FormatInt(user, 10)
 	_, err = tx.Exec("INSERT INTO "+userLeagues+" (league) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
@@ -432,6 +428,7 @@ func createLeague(c *gin.Context) {
 //We'll make a request to /user/leagues/:id, and return any leagues on the leagues_#userID table.  We should also grab
 //The associated name each league returned.  We should also return league invites to users with the same structure.
 func getLeagues(c *gin.Context) {
+	session := sessions.Default(c)
 	db := store.GetDB()
 	type LeagueInfo struct {
 		ID   int64
@@ -440,14 +437,9 @@ func getLeagues(c *gin.Context) {
 	var leagues []LeagueInfo
 	var invites []LeagueInfo
 
-	_, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	//check if number
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
+	user := session.Get("user").(int64)
 
-	userLeaguesTable := "leagues_" + c.Param("id")
+	userLeaguesTable := "leagues_" + strconv.FormatInt(user, 10)
 	rows, err := db.Query("SELECT league.id, league.name FROM " +
 		userLeaguesTable +
 		" AS lt LEFT JOIN league ON lt.league=league.id")
@@ -468,7 +460,7 @@ func getLeagues(c *gin.Context) {
 	}
 
 	//Do the exact same thing, but with user invites table.
-	userInvitesTable := "invites_" + c.Param("id")
+	userInvitesTable := "invites_" + strconv.FormatInt(user, 10)
 	rows, err = db.Query("SELECT id, name FROM " +
 		userInvitesTable +
 		" AS lt LEFT JOIN league ON lt.league=league.id")
@@ -493,6 +485,7 @@ func getLeagues(c *gin.Context) {
 //we'll take the id of the league and the user's credentials, ensure they're authorized to view, and then load the basic league
 //data that will determine what lower components get rendered.
 func LeagueHome(c *gin.Context) {
+	session := sessions.Default(c)
 	db := store.GetDB()
 	type FullLeagueInfo struct {
 		ID           int64
@@ -500,9 +493,11 @@ func LeagueHome(c *gin.Context) {
 		Commissioner AccountInfo
 		State        string
 		MaxOwner     int64
+		Kind         string
 	}
 	var f FullLeagueInfo
 	var err error
+	user := session.Get("user").(int64)
 
 	f.ID, err = strconv.ParseInt(c.Param("id"), 10, 64)
 	//check if number
@@ -512,10 +507,10 @@ func LeagueHome(c *gin.Context) {
 	}
 
 	//So let's start with some obvious stuff, we'll return
-	row := db.QueryRow(`SELECT league.name, league.state, league.maxOwner,
+	row := db.QueryRow(`SELECT league.name, league.state, league.maxOwner, league.kind,
 		user.id, user.name, user.email FROM league JOIN user ON league.commissioner=user.id 
 		WHERE league.id = ?`, c.Param("id"))
-	if err := row.Scan(&f.Name, &f.State, &f.MaxOwner, &f.Commissioner.ID, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
+	if err := row.Scan(&f.Name, &f.State, &f.MaxOwner, &f.Kind, &f.Commissioner.ID, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
@@ -545,6 +540,17 @@ func LeagueHome(c *gin.Context) {
 		}
 		teams = append(teams, t)
 	}
+	//check for user amongst the teams.
+	authorized := false
+	for _, team := range teams {
+		if team.Manager.ID == user {
+			authorized = true
+		}
+	}
+	if !authorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "User not in league", "ok": false})
+	}
+
 	//Get Invites (only if league is in INIT state)
 	if f.State == "INIT" {
 		var invites []AccountInfo
@@ -593,11 +599,11 @@ func LeagueHome(c *gin.Context) {
 //users to join their league.  To accomplish this, we need to get user initiating the invite, the invitee's information and the
 //league the invite points to.  We also need to verify the user making the request is the commissioner.
 func InviteUser(c *gin.Context) {
+	session := sessions.Default(c)
 	db := store.GetDB()
 	type Invite struct {
-		User    AccountInfo `json:"user" form:"user" binding:"required"`
-		Invitee string      `json:"invitee" form:"invitee"`
-		League  int64       `json:"league" form:"league"`
+		Invitee string `json:"invitee" form:"invitee"`
+		League  int64  `json:"league" form:"league"`
 	}
 	var v Invite
 	if c.BindJSON(&v) != nil {
@@ -605,7 +611,19 @@ func InviteUser(c *gin.Context) {
 		return
 	}
 
-	//So we got all that information.  Let's move forward with the assumption invitee is an email (username support to come later?)
+	//Check that invite issuer is commissioner of the league
+	user := session.Get("user").(int64)
+	var commish int64
+	row := db.QueryRow("SELECT commissioner FROM league WHERE id=?", v.League)
+	if err := row.Scan(&commish); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	if commish != user {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized to invite", "ok": false})
+		return
+	}
+
 	//Validate email, just in case something gets by the html validation.
 	validator := strings.Split(v.Invitee, "@")
 	if len(validator) != 2 {
@@ -629,7 +647,7 @@ func InviteUser(c *gin.Context) {
 	//Email is legit, we can now search our user database for a user associated with this email.
 	var userID int64
 	var username string
-	row := tx.QueryRow("SELECT id, name FROM user WHERE email=?", v.Invitee)
+	row = tx.QueryRow("SELECT id, name FROM user WHERE email=?", v.Invitee)
 	//I really don't like putting functionality in errors, but here it'll save us a query.
 	if err := row.Scan(&userID, &username); err != nil {
 
@@ -719,13 +737,14 @@ func InviteUser(c *gin.Context) {
 //at capacity and whether the user is on the invitation list to the league. If so, We register them with the league.  We'll
 //then reroute the user on the front-end to LeagueHome
 func joinLeague(c *gin.Context) {
+	session := sessions.Default(c)
 	db := store.GetDB()
 	type TeamSubmission struct {
-		User   int64  `json:"user,string"`
-		League int64  `json:"league,string"`
+		League int64  `json:"league"`
 		Team   string `json:"team"`
 	}
 	var t TeamSubmission
+	user := session.Get("user").(int64)
 	if c.BindJSON(&t) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
@@ -763,7 +782,7 @@ func joinLeague(c *gin.Context) {
 	//With that done, we can add the team to the league
 	_, err = tx.Exec("INSERT INTO teams_"+
 		strconv.FormatInt(t.League, 10)+
-		" (name, manager) VALUES (?,?)", t.Team, t.User)
+		" (name, manager) VALUES (?,?)", t.Team, user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert teams_", "ok": false})
 		return
@@ -771,7 +790,7 @@ func joinLeague(c *gin.Context) {
 
 	//And insert the league into leagues_userid
 	_, err = tx.Exec("INSERT INTO leagues_"+
-		strconv.FormatInt(t.User, 10)+
+		strconv.FormatInt(user, 10)+
 		" (league) VALUES (?)", t.League)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert leagues_", "ok": false})
@@ -781,14 +800,14 @@ func joinLeague(c *gin.Context) {
 	//We're not done yet though, remove the invite from both invites tables
 	_, err = tx.Exec("DELETE FROM league_"+
 		strconv.FormatInt(t.League, 10)+
-		"_invites WHERE user=?", t.User)
+		"_invites WHERE user=?", user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete league_#_invites", "ok": false})
 		return
 	}
 
 	_, err = tx.Exec("DELETE FROM invites_"+
-		strconv.FormatInt(t.User, 10)+
+		strconv.FormatInt(user, 10)+
 		" WHERE league=?", t.League)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete invites", "ok": false})
@@ -811,7 +830,7 @@ func leagueSettings(c *gin.Context) {
 	type LeagueSettings struct {
 		ID       int64  `json:"league"`
 		Name     string `json:"name"`
-		MaxOwner int64  `json:"maxOwner,string"`
+		MaxOwner int64  `json:"maxOwner"`
 		Kind     string `json:"kind"`
 	}
 	var s LeagueSettings
@@ -829,15 +848,15 @@ func leagueSettings(c *gin.Context) {
 	defer tx.Rollback()
 
 	//A little verification that we're getting the request from the commissioner
-	var commishID int64
-	userID := session.Get("userID").(int64)
+	var commish int64
+	user := session.Get("user").(int64)
 	row := tx.QueryRow("SELECT commissioner FROM league WHERE id=?", s.ID)
-	if err := row.Scan(&commishID); err != nil {
+	if err := row.Scan(&commish); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	if userID != commishID {
+	if user != commish {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unauthorized Edit.", "ok": false})
 		return
 	}

@@ -21,8 +21,8 @@ const { useState, useEffect, useContext } = React;
 //the context as well as a league nav, then we will use our league states to identify a default component
 //to display as the main content on the page. 
 function LeagueHome(props) {
-    const [leagueProps, setLeagueProps] = useState({id: 0, name: "", state: "", maxOwner: 0})
-    const [commissioner, setCommissioner] = useState({id: 0, name: "", email: ""})
+    const [leagueProps, setLeagueProps] = useState({ id: 0, name: "", state: "", maxOwner: 0 })
+    const [commissioner, setCommissioner] = useState({ id: 0, name: "", email: "" })
     const [teams, setTeams] = useState([])
     const [invites, setInvites] = useState([])
     const [openSpots, setOpenSpots] = useState(0)
@@ -33,32 +33,32 @@ function LeagueHome(props) {
     //permissions and what state the league is in.
     useEffect(() => {
         let url = "/league/home/" + props.ID
-        fetch(url, {method: "GET"})
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok == false) {
-                Notify(data.error, 0)
-            } else {
-                setCommissioner(data.league.Commissioner)
-                setLeagueProps({id: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner})
-                let count = 0
-                if (data.teams != null) {
-                    setTeams(data.teams)
-                    count += data.teams.length
-                }
-                if (data.invites != null) {
-                    setInvites(data.invites)
-                    count += data.invites.length
-                }
-                if (count > data.league.MaxOwner) {
-                    setOpenSpots(0)
-                    
+        fetch(url, { method: "GET" })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok == false) {
+                    Notify(data.error, 0)
                 } else {
-                    setOpenSpots(data.league.MaxOwner - count)
+                    setCommissioner(data.league.Commissioner)
+                    setLeagueProps({ id: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner })
+                    let count = 0
+                    if (data.teams != null) {
+                        setTeams(data.teams)
+                        count += data.teams.length
+                    }
+                    if (data.invites != null) {
+                        setInvites(data.invites)
+                        count += data.invites.length
+                    }
+                    if (count > data.league.MaxOwner) {
+                        setOpenSpots(0)
+
+                    } else {
+                        setOpenSpots(data.league.MaxOwner - count)
+                    }
                 }
-            }
-        })
-        .catch(error => console.error(error))
+            })
+            .catch(error => console.error(error))
     }, [])
 
     useEffect(() => {
@@ -81,46 +81,47 @@ function LeagueHome(props) {
     function lockLeague(e) {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
-        fetch("/lockLeague", {
+        fetch("/lockleague", {
             method: "POST",
             headers: {
                 'X-CSRF-TOKEN': csrftoken,
-                'Content-Type': 'Application/json'    
+                'Content-Type': 'Application/json'
             },
-            body: JSON.stringify({league: leagueProps.id})
+            body: JSON.stringify({ league: leagueProps.id })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok == false) {
-                Notify(data.error, 0)
-            } else {
-                let newProps = {
-                    id: leagueProps.id, 
-                    name: leagueProps.name, 
-                    state: data.state, 
-                    maxOwner: leagueProps.maxOwner}
-                setLeagueProps(newProps)
-                Notify("League is now in draft mode, please review settings", 1)
-            }
-        })
-        .catch(error => console.error(error))
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok == false) {
+                    Notify(data.error, 0)
+                } else {
+                    let newProps = {
+                        id: leagueProps.id,
+                        name: leagueProps.name,
+                        state: data.state,
+                        maxOwner: leagueProps.maxOwner
+                    }
+                    setLeagueProps(newProps)
+                    Notify("League is now in draft mode, please review settings", 1)
+                }
+            })
+            .catch(error => console.error(error))
     }
 
     //Since our league state is going to have a fair bit of control over how we render league home, I think we build
     //Our component based on that.  So many notes already and I have a feeling this'll be refactored greatly.
     switch (leagueProps.state) {
         case "INIT":
-            return(
+            return (
                 <div>
                     <button className='btn-close btn-close' onClick={closeLeague}></button>
                     Welcome!
                     <h1>{leagueProps.name}</h1>
-                    {teams.map(team => <TeamBox key={team.ID +"_team"} team={team}/>)}
+                    {teams.map(team => <TeamBox key={team.ID + "_team"} team={team} />)}
                     {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={"invite_" + i} invite={invite} /> : "")}
-                    {[...Array(openSpots)].map((x, i) => <InviteBox key={"anon_invite_"+i} invite={null} commissioner={commissioner} league={leagueProps.id}/>)}
+                    {[...Array(openSpots)].map((x, i) => <InviteBox key={"anon_invite_" + i} invite={null} commissioner={commissioner} league={leagueProps.id} />)}
                     {openSpots == 0 ? <button onClick={lockLeague}>Lock League</button> : ""}
-                    <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps}/>
-                </div>        
+                    <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps} />
+                </div>
             )
         default:
             return <div>loading...</div>
@@ -129,8 +130,8 @@ function LeagueHome(props) {
 
 //Team Box should be a generic view of all top end team information.  
 function TeamBox(props) {
-    return(
-        <div  id={props.team.id + "_team"}>
+    return (
+        <div id={props.team.id + "_team"}>
             {props.team.Name} - {props.team.Manager.name} ({props.team.Manager.email})
         </div>
     )
@@ -158,19 +159,19 @@ function InviteBox(props) {
             method: "POST",
             headers: {
                 'X-CSRF-TOKEN': csrftoken,
-                'Content-Type': 'Application/json'    
+                'Content-Type': 'Application/json'
             },
-            body: JSON.stringify({"user": User, "invitee": invitee, "league": props.league})
+            body: JSON.stringify({ "invitee": invitee, "league": props.league })
         })
-        .then(response=>response.json())
-        .then(data => { 
-            if (data.ok == false) {
-                Notify(data.error, 0)
-            } else {
-                setCompleteInvite(data)
-            }
-        })
-        .catch(error => console.error(error))
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok == false) {
+                    Notify(data.error, 0)
+                } else {
+                    setCompleteInvite(data)
+                }
+            })
+            .catch(error => console.error(error))
     }
 
     useEffect(() => {
@@ -195,28 +196,32 @@ function InviteBox(props) {
                 {completeInvite.name} - ({completeInvite.email})
             </div>
         )
-    }   
+    }
 }
 
 function LeagueSettings(props) {
     const [maxOwner, setMaxOwner] = useState(0)
     const [leagueName, setLeagueName] = useState("")
+    const [kind, setKind] = useState("")
     const [loading, setLoading] = useState(true)
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
-    
+
     useEffect(() => {
         setMaxOwner(props.league.maxOwner)
         setLeagueName(props.league.name)
+        setKind(props.league.kind)
         setLoading(false)
     }, [])
-    
+
     function handleChange(e) {
         e.preventDefault()
         switch (e.target.name) {
             case "leagueName":
                 setLeagueName(e.target.value)
                 break;
+            case "kind":
+
             default:
                 setMaxOwner(e.target.value)
                 break;
@@ -226,41 +231,43 @@ function LeagueSettings(props) {
     function submit(e) {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
-        fetch("/leagueSettings", {
+        fetch("/leaguesettings", {
             method: "POST",
             headers: {
                 'X-CSRF-TOKEN': csrftoken,
-                'Content-Type': 'Application/json'    
+                'Content-Type': 'Application/json'
             },
-            body: JSON.stringify({league: props.league.id, name: leagueName, maxOwner: maxOwner })
+            body: JSON.stringify({ league: props.league.id, name: leagueName, maxOwner: maxOwner, kind: kind })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok == false) {
-                Notify(data.error, 0)
-            } else {
-                setMaxOwner(data.maxOwner)
-                setLeagueName(data.name)
-                props.setLeague({id: props.league.id,
-                    name: data.name, 
-                    state: props.league.state, 
-                    maxOwner: data.maxOwner})
-                Notify("New Settings Saved", 1)
-            }
-        })
-        .catch(error => console.error(error))
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok == false) {
+                    Notify(data.error, 0)
+                } else {
+                    setMaxOwner(data.maxOwner)
+                    setLeagueName(data.name)
+                    props.setLeague({
+                        id: props.league.id,
+                        name: data.name,
+                        state: props.league.state,
+                        maxOwner: data.maxOwner
+                    })
+                    Notify("New Settings Saved", 1)
+                }
+            })
+            .catch(error => console.error(error))
     }
 
     if (loading) {
         return (
-        <div>
-            loading...
-        </div>
+            <div>
+                loading...
+            </div>
         )
     }
     //Static view
     if (User.id !== props.commissioner.id) {
-        return(
+        return (
             <div>
                 <h1>League Settings</h1>
                 <div>
@@ -272,15 +279,53 @@ function LeagueSettings(props) {
     }
 
     //Commish view. Max at 16?  why not?
-    return(
+    return (
         <div>
             <h1>League Settings</h1>
             <form onSubmit={submit}>
                 <input name="leagueName" type="text" value={leagueName} onChange={handleChange}></input>
                 <input name="maxOwner" type="number" max="16" value={maxOwner} onChange={handleChange}></input>
-                <input name="kind" type="select"></input>
+                <select name="kind" id="league_kind" onChange={handleChange} value={kind}>
+                    <option value="TRAD">Traditional</option>
+                    <option value="TP">Total Points</option>
+                    <option value="ALLPLAY">All Play</option>
+                    <option value="PIRATE">Pirate</option>
+                    <option value="GUILLOTINE">Guillotine</option>
+                </select>
                 <button type="submit">Save Settings</button>
             </form>
         </div>
     )
-} 
+}
+
+//Considering the depth we get into for our settings, we're going to need a component for each of our big settings
+//categories.  Draft settings is pretty simple.  We'll present a "kind" selection, which will toggle between two set
+//defaults, and if the user selects custom they can have access to all the options in the table.
+function DraftSettings(props) {
+
+
+
+    return (
+        <div>
+            <h1>Draft Settings</h1>
+            <form>
+
+            </form>
+        </div>
+    )
+}
+
+//Much like draft settings, we'll have presets the user can choose from, then a fully customizable form if they choose 
+//the custom option
+function PositionalSettings(props) {
+    return null
+}
+
+//Finally, Scoring settings is actually a bear.  While we will carry our preset idea forward, we're going to want to 
+//format the customizable numbers a little differently than they are kept in the database.  While decimals make sense
+//for storage, a user might be more interested in setting 1 point per x yards.  we'll have to disable any inputs that
+//doesn't neatly resolve to the hundreths space for a decimal (no 1 point every 17 yards), but I think it will be more
+//user friendly. 
+function ScoringSettings(props) {
+    return null
+}

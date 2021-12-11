@@ -26,19 +26,21 @@ func NewRouter() *gin.Engine {
 		},
 	}))
 
-	r.LoadHTMLFiles("./static/index.html")
-	r.Static("/static", "./static")
+	r.LoadHTMLFiles(os.Getenv("FSGOPATH") + "static/index.html")
+	r.Static("/static", os.Getenv("FSGOPATH")+"static")
 
+	//TODO: Refactor these.  names could be better for routes, probably should group everything
+	//outside of index as needing authorization (a middleware that checks for session id?  is that built in?)
 	r.GET("/", index)
 	r.POST("register", register)
 	r.POST("login", login)
 	r.GET("logout", logout)
 	r.POST("createleague", createLeague)
 	r.POST("invite", InviteUser)
-	r.GET("/user/leagues/:id", getLeagues)
+	r.GET("leagues", getLeagues)
 	r.GET("/league/home/:id", LeagueHome)
 	r.POST("joinleague", joinLeague)
-	r.POST("leagueSettings", leagueSettings)
-	r.POST("lockLeague", lockLeague)
+	r.POST("leaguesettings", leagueSettings)
+	r.POST("lockleague", lockLeague)
 	return r
 }
