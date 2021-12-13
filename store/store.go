@@ -18,11 +18,12 @@ var db *sql.DB
 func ConnectDB(s string) {
 	// Capture connection properties.
 	cfg := mysql.Config{
-		User:   os.Getenv("DBUSER"),
-		Passwd: os.Getenv("DBPASS"),
-		Net:    "tcp",
-		Addr:   "127.0.0.1:3306",
-		DBName: s,
+		User:      os.Getenv("DBUSER"),
+		Passwd:    os.Getenv("DBPASS"),
+		Net:       "tcp",
+		Addr:      "127.0.0.1:3306",
+		DBName:    s,
+		ParseTime: true,
 	}
 	// Get a database handle.
 	var err error

@@ -66,7 +66,7 @@ function LeagueDirectory(props) {
     }
 
     useEffect(() => {
-        let url = "/user/leagues/" + User.id
+        let url = "/leagues"
         fetch(url, { method: "GET" })
             .then(response => response.json())
             .then(data => {

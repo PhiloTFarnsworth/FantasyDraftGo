@@ -47,7 +47,7 @@ function App() {
                     <div className="container">
                         <Header />
                         <Notify note={notification} onClick={clearNote} />
-                        {user.id === "0" ? //Guest view or lobby
+                        {user.id === 0 ? //Guest view or lobby
                             <LoginController onRegister={handleUserChange} /> :
                             <Lobby />}
                     </div>

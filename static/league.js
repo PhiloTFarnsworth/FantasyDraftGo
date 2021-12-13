@@ -124,7 +124,7 @@ function LeagueHome(props) {
                 </div>
             )
         default:
-            return <div>loading...</div>
+            return <DraftSettings league={leagueProps.id} commissioner={commissioner} />
     }
 }
 
@@ -221,7 +221,8 @@ function LeagueSettings(props) {
                 setLeagueName(e.target.value)
                 break;
             case "kind":
-
+                setKind(e.target.value)
+                break;
             default:
                 setMaxOwner(e.target.value)
                 break;
@@ -271,8 +272,9 @@ function LeagueSettings(props) {
             <div>
                 <h1>League Settings</h1>
                 <div>
-                    <p>{props.league.name}</p>
-                    <p>{props.league.maxOwner}</p>
+                    <h2>{props.league.name}</h2>
+                    <p>maxOwners:{props.league.maxOwner}</p>
+                    <p>Kind:{props.league.kind}</p>
                 </div>
             </div>
         )
@@ -302,14 +304,100 @@ function LeagueSettings(props) {
 //categories.  Draft settings is pretty simple.  We'll present a "kind" selection, which will toggle between two set
 //defaults, and if the user selects custom they can have access to all the options in the table.
 function DraftSettings(props) {
+    const [settings, setSettings] = useState({})
+    const [loading, setLoading] = useState(true)
+    const [form, setForm] = useState([])
+    const User = useContext(UserContext)
+    const Notify = useContext(NotifyContext)
 
+    const kindEnums = ['TRAD', 'CUSTOM']
+    const draftOrderEnums = ['SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM']
+    //We should Identify which keys need which type of inputs.
+    const selects = ['Kind', 'DraftOrder']
+    const times = ['Time']
+    const radios = ['Auction', 'DraftClock', 'Trades']
+    const numbers = ['Rounds']
 
+    useEffect(() => {
+        let url = "/league/settings/getdraft/" + 1 //props.league
+        fetch(url, { method: "GET" })
+            .then(response => response.json())
+            .then(data => {
+                setSettings(data)
+                setLoading(false)
+            })
+            .catch(error => console.error(error))     
+    }, [])
+
+    useEffect(() => {
+        formBuilder()
+    }, [settings])
+
+    function findInputType(key) {
+        if (selects.includes(key)) { return "select" }
+        if (times.includes(key)) { return "time" }
+        if (radios.includes(key)) { return "radio" }
+        if (numbers.includes(key)) { return "number" }
+        return "text"
+    }
+
+    function formBuilder() {
+        let protoForm = []
+        Object.entries(settings).forEach(([key, value]) => {
+            switch (findInputType(key)) {
+                case "select":
+                    protoForm.push(<select name={key} id={"draft_" + key} value={value}>
+                        {key == "kind" ?
+                            kindEnums.map(k => <option value={k} />) :
+                            draftOrderEnums.map(k => <option value={k} />)
+                        }
+                    </select>)
+                    break;
+                case "number":
+                    protoForm.push(
+                    <input type="number" name={key} id={"draft_" + key} value={value} />)
+                    break;
+                case "radio":
+                    protoForm.push(<input type="radio" name={key} id={"draft_" + key} value={value} />)
+                    break;
+                case "time":
+                    protoForm.push(<input type="time" name={key} id={"draft_" + key} value={value} />)
+                    break;
+                default:
+                    key == "id" ? "" :
+                        protoForm.push(<input type="text" name={key} id={"draft_" + key} value={value} />)
+
+            }
+        })
+        setForm(protoForm)
+    }
+
+    if (loading) {
+        return (
+            <div>
+                loading...
+            </div>
+        )
+    }
+    if (User.id !== props.commissioner.id) {
+        return (
+            <div>
+                <h1>Draft Settings</h1>
+                {Object.entries(settings).forEach(([key, value]) => {
+                    key == "id" ? "" :
+                        <div>
+                            <h6>{key}:</h6><p>{value}</p>
+                        </div>
+                })}
+            </div>
+        )
+    }
 
     return (
         <div>
             <h1>Draft Settings</h1>
             <form>
-
+                {form.map(s => s)}
             </form>
         </div>
     )
@@ -318,7 +406,38 @@ function DraftSettings(props) {
 //Much like draft settings, we'll have presets the user can choose from, then a fully customizable form if they choose 
 //the custom option
 function PositionalSettings(props) {
-    return null
+    const [settings, setSettings] = useState({})
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        let url = "/league/settings/getpos/" + props.league
+        fetch(url, { method: "GET" })
+            .then(response => response.json())
+            .then(data => setSettings(data))
+            .catch(error => console.error(error))
+        setLoading(true)
+    }, [])
+
+    if (loading) {
+        return (
+            <div>
+                loading...
+            </div>
+        )
+    }
+    if (User.id !== props.commissioner.id) {
+        return (
+            <div>
+                <h1>Draft Settings</h1>
+                {Object.entries(settings).forEach(([key, value]) => {
+                    key == "id" ? "" :
+                        <div>
+                            <h6>{key}:</h6><p>{value}</p>
+                        </div>
+                })}
+            </div>
+        )
+    }
 }
 
 //Finally, Scoring settings is actually a bear.  While we will carry our preset idea forward, we're going to want to 
@@ -327,5 +446,36 @@ function PositionalSettings(props) {
 //doesn't neatly resolve to the hundreths space for a decimal (no 1 point every 17 yards), but I think it will be more
 //user friendly. 
 function ScoringSettings(props) {
-    return null
+    const [settings, setSettings] = useState({})
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        let url = "/league/settings/getscor/" + props.league
+        fetch(url, { method: "GET" })
+            .then(response => response.json())
+            .then(data => setSettings(data))
+            .catch(error => console.error(error))
+        setLoading(true)
+    }, [])
+
+    if (loading) {
+        return (
+            <div>
+                loading...
+            </div>
+        )
+    }
+    if (User.id !== props.commissioner.id) {
+        return (
+            <div>
+                <h1>Draft Settings</h1>
+                {Object.entries(settings).forEach(([key, value]) => {
+                    key == "id" ? "" :
+                        <div>
+                            <h6>{key}:</h6><p>{value}</p>
+                        </div>
+                })}
+            </div>
+        )
+    }
 }

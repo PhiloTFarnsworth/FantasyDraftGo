@@ -39,11 +39,13 @@ func TestMain(m *testing.M) {
 	store.ConnectDB("testfsgo")
 	db := store.GetDB()
 	//create/clear testfsgo database
+	//./store/league.sql
 	err := store.BatchSQLFromFile(os.Getenv("FSLSA"), db)
 	if err != nil {
 		fmt.Println("league batch: ", err)
 		os.Exit(1)
 	}
+	//./store/user.sql
 	err = store.BatchSQLFromFile(os.Getenv("FSUSA"), db)
 	if err != nil {
 		fmt.Println("league batch: ", err)
@@ -52,7 +54,7 @@ func TestMain(m *testing.M) {
 	r = server.NewRouter()
 
 	//Fake path to retrieve csrf token
-	r.GET("csrftoken", func(c *gin.Context) { c.String(200, csrf.GetToken(c)) })
+	r.GET("csrftoken", func(c *gin.Context) { c.String(http.StatusOK, csrf.GetToken(c)) })
 
 	os.Exit(m.Run())
 }
@@ -65,8 +67,8 @@ func TestAnonIndex(t *testing.T) {
 	}
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	//scuffed, but I don't really want to add a dependency for the single html file we parse.
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">0</script>`) {
@@ -102,8 +104,8 @@ func TestRegister(t *testing.T) {
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">1</script>`) {
 		t.Errorf(`wanted <script type="text" id="userID">1</script> got %v`, w.Body.String())
@@ -175,8 +177,8 @@ func TestLogin(t *testing.T) {
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">1</script>`) {
 		t.Errorf(`wanted <script type="text" id="userID">1</script> got %v`, w.Body.String())
@@ -231,12 +233,13 @@ func TestGetLeagues(t *testing.T) {
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	want := `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League"}]}`
 	if w.Body.String() != want {
-		t.Errorf("want %v got ", w.Body.String())
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
 	}
 }
 
@@ -249,7 +252,8 @@ func TestInviteUnregistered(t *testing.T) {
 	}
 	want := `{"id":0,"name":"Unregistered","email":"barry@mail.com"}`
 	if w.Body.String() != want {
-		t.Errorf("want %v got %v", want, w.Body.String())
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
 	}
 }
 
@@ -287,12 +291,13 @@ func TestGetLeaguesInvite(t *testing.T) {
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	want := `{"invites":[{"ID":1,"Name":"All Arry League"}],"leagues":null}`
 	if want != w.Body.String() {
-		t.Errorf("want %v got %v", want, w.Body.String())
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
 	}
 }
 
@@ -316,12 +321,13 @@ func TestJoinLeague(t *testing.T) {
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
-		t.Errorf("wanted 200 code got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted http.StatusOK code got %v", w.Code)
 	}
 	want = `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League"}]}`
 	if want != w.Body.String() {
-		t.Errorf("want %v got %v", want, w.Body.String())
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
 	}
 }
 
@@ -375,15 +381,16 @@ func TestLeagueHome(t *testing.T) {
 	}
 	req.Header.Add("Cookie", a.cookie)
 	r.ServeHTTP(w, req)
-	if w.Code != 200 {
-		t.Errorf("want 200 got %v", w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
 	//Beyond how unwieldy this gets, we really want to track changes to this page as we have users join.
 	//There's probably a better way that's eluding me at the moment, but for some larger tests (like a max size league)
 	//We're going to want to compare views in a programmatic way.
 	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"id":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"id":1,"name":"larry","email":"larry@mail.com"}},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"id":5,"name":"barry","email":"barry@mail.com"}},{"ID":3,"Name":"Marry Christmas","Manager":{"id":6,"name":"marry","email":"marry@mail.com"}}]}`
 	if want != w.Body.String() {
-		t.Errorf("want %v got %v", want, w.Body.String())
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
 	}
 }
 
@@ -411,6 +418,157 @@ func TestLockLeague(t *testing.T) {
 	}
 }
 
+func TestGetDraftSettings(t *testing.T) {
+	a := larryClient
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getdraft/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := `{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":false,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+//SetAuction true
+func TestSetDraftSettings(t *testing.T) {
+	a := larryClient
+
+	w, err := postJSON(a,
+		"/league/settings/setdraft/1",
+		`{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":true,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`,
+		http.StatusOK)
+	if err != nil {
+		t.Errorf("bad request: %v", err)
+	}
+	want := `{"ok":true}`
+	if want != w.Body.String() {
+		t.Errorf("want %v got %v", want, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getdraft/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want = `{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":true,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+func TestGetPositionalSettings(t *testing.T) {
+	a := larryClient
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getpos/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := `{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":0,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+//Add two to superflex
+func TestSetPositionalSettings(t *testing.T) {
+	a := larryClient
+	w, err := postJSON(a,
+		"/league/settings/setpos/1",
+		`{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`,
+		http.StatusOK)
+	if err != nil {
+		t.Errorf("bad request: %v", err)
+	}
+	want := `{"ok":true}`
+	if want != w.Body.String() {
+		t.Errorf("want %v got %v", want, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getpos/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want = `{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+func TestGetScoringSettings(t *testing.T) {
+	a := larryClient
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getscor/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := `{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":6,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+//Set passtouchdown to 10
+func TestSetScoringSettings(t *testing.T) {
+	a := larryClient
+	w, err := postJSON(a,
+		"/league/settings/setscor/1",
+		`{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`,
+		http.StatusOK)
+	if err != nil {
+		t.Errorf("bad request: %v", err)
+	}
+	want := `{"ok":true}`
+	if want != w.Body.String() {
+		t.Errorf("want %v got %v", want, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/settings/getscor/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want = `{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
 /*
 	HELPERS
 */
@@ -423,7 +581,7 @@ func getCSRF(r *gin.Engine) (a client, err error) {
 		return client{}, err
 	}
 	r.ServeHTTP(w, req)
-	if w.Code != 200 {
+	if w.Code != http.StatusOK {
 		return client{}, err
 	}
 	headers := w.Header()
@@ -431,7 +589,7 @@ func getCSRF(r *gin.Engine) (a client, err error) {
 }
 
 //All of our POST requests send a JSON.stringified object.
-func postJSON(c client, url string, JSONbody string, code int) (*httptest.ResponseRecorder, error) {
+func postJSON(c client, url string, JSONbody string, httpStatus int) (*httptest.ResponseRecorder, error) {
 	w := httptest.NewRecorder()
 	data := strings.NewReader(JSONbody)
 	req, err := http.NewRequest("POST", url, data)
@@ -442,9 +600,9 @@ func postJSON(c client, url string, JSONbody string, code int) (*httptest.Respon
 	req.Header.Add("Content-Type", "Application/JSON")
 	req.Header.Add("Cookie", c.cookie)
 	r.ServeHTTP(w, req)
-	if w.Code != code {
+	if w.Code != httpStatus {
 		return nil, errors.New("want " +
-			strconv.Itoa(code) +
+			strconv.Itoa(httpStatus) +
 			" got " +
 			strconv.Itoa(w.Code) +
 			" cause: " +

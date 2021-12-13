@@ -21,7 +21,7 @@ function Header(props) {
                     </a>
                 </div>
                 <div className='col'>
-                    {User.id === '0' ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
+                    {User.id === 0 ? '' : <a href='\logout'><button className='btn btn-warning'>logout</button></a>}
                 </div>
             </div>
         </nav>

@@ -31,12 +31,12 @@ so we'll more effectively resist the temptation to call for this info.
 DROP TABLE IF EXISTS draft_settings;
 CREATE TABLE draft_settings (
     id INT NOT NULL UNIQUE,
-    kind ENUM('TRAD', 'AUCTION', 'CUSTOM') DEFAULT 'TRAD',
+    kind ENUM('TRAD', 'CUSTOM') DEFAULT 'TRAD',
     draftOrder ENUM('SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM') DEFAULT 'SNAKE',
     auction BOOLEAN NOT NULL DEFAULT 0,
-    time TIMESTAMP,
+    time DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
     draftClock BOOLEAN NOT NULL DEFAULT 0,
-    rounds TINYINT NOT NULL,
+    rounds TINYINT NOT NULL DEFAULT 15,
     trades BOOLEAN NOT NULL DEFAULT 0 
 );
 /*
