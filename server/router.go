@@ -44,7 +44,6 @@ func NewRouter() *gin.Engine {
 	r.POST("lockleague", lockLeague)
 	r.GET("/league/settings/getdraft/:id", getDraftSettings)
 	r.POST("/league/settings/setdraft/:id", setDraftSettings)
-	r.GET("/league/settings/getpos/:id", getPositionalSettings)
 	r.POST("/league/settings/setpos/:id", setPositionalSettings)
 	r.GET("/league/settings/getscor/:id", getScoringSettings)
 	r.POST("/league/settings/setscor/:id", setScoringSettings)

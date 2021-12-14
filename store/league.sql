@@ -31,18 +31,23 @@ so we'll more effectively resist the temptation to call for this info.
 DROP TABLE IF EXISTS draft_settings;
 CREATE TABLE draft_settings (
     id INT NOT NULL UNIQUE,
-    kind ENUM('TRAD', 'CUSTOM') DEFAULT 'TRAD',
+    kind ENUM('TRAD', 'AUCTION') DEFAULT 'TRAD',
     draftOrder ENUM('SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM') DEFAULT 'SNAKE',
-    auction BOOLEAN NOT NULL DEFAULT 0,
     time DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
-    draftClock BOOLEAN NOT NULL DEFAULT 0,
-    rounds TINYINT NOT NULL DEFAULT 15,
-    trades BOOLEAN NOT NULL DEFAULT 0 
+    draftClock TINYINT NOT NULL DEFAULT 0,
+    rounds TINYINT NOT NULL DEFAULT 15 
 );
 /*
+    TODO:
+        trades BOOLEAN NOT NULL DEFAULT 0 --tradable draft picks
+*/
+
+
+/*
 The same logic applies to positional settings.  We'll allow commissioners to define
-how many starters a team can use at each position.  Defaults will match the traditional
-roster build.
+how many starters a team can use at each position.  Much like draft settings, we'll want to lock (or soft lock)
+these values after a draft has officially started, though we may add an option to allow commissioners to add
+a bench spot during a season.  
 */
 DROP TABLE IF EXISTS positional_settings;
 CREATE TABLE positional_settings (
@@ -56,12 +61,16 @@ CREATE TABLE positional_settings (
     bench TINYINT NOT NULL DEFAULT 6,
     superflex TINYINT NOT NULL DEFAULT 0,
     def TINYINT NOT NULL DEFAULT 1,
-    dl TINYINT NOT NULL DEFAULT 0,
+    k TINYINT NOT NULL DEFAULT 1
+);
+
+/*
+    TODO:
+    p TINYINT NOT NULL DEFAULT 0 --All Punters League 1 day
+    dl TINYINT NOT NULL DEFAULT 0, -- Individual defensive player 
     lb TINYINT NOT NULL DEFAULT 0,
     db TINYINT NOT NULL DEFAULT 0,
-    k TINYINT NOT NULL DEFAULT 1,
-    p TINYINT NOT NULL DEFAULT 0
-);
+*/
 
 /*
 We're going to allow a decent sized range for point per stat.  .01 - 99 per 1 in each stat seems like fair
@@ -70,8 +79,8 @@ the final implementation might be limited by what we can get, we should aspire t
 possible
 */
 
-DROP TABLE IF EXISTS scoring_settings;
-CREATE TABLE scoring_settings (
+DROP TABLE IF EXISTS scoring_settings_offense;
+CREATE TABLE scoring_settings_offense (
     id INT NOT NULL UNIQUE,
     kind ENUM('TRAD', 'PPR', 'CUSTOM') DEFAULT 'TRAD',
     pass_att DECIMAL(4,2) NOT NULL DEFAULT 0,
@@ -91,19 +100,61 @@ CREATE TABLE scoring_settings (
     fum_lost DECIMAL (4,2) NOT NULL DEFAULT -2,
     misc_td DECIMAL (4,2) NOT NULL DEFAULT 6,
     two_point DECIMAL (4,2) NOT NULL DEFAULT 2,
-    two_point_pass DECIMAL (4,2) NOT NULL DEFAULT 2,
-    def_td DECIMAL (4,2) NOT NULL DEFAULT 6,
-    def_tackle DECIMAL (4,2) NOT NULL DEFAULT 0,
-    def_sack DECIMAL (4,2) NOT NULL DEFAULT 1,
-    def_int DECIMAL (4,2) NOT NULL DEFAULT 3,
-    def_safety DECIMAL (4,2) NOT NULL DEFAULT 2,
-    def_shutout DECIMAL (4,2) NOT NULL DEFAULT 10,
-    def_yards DECIMAL (4,2) NOT NULL DEFAULT -0.01, 
-    spec_return_yards DECIMAL (4,2) NOT NULL DEFAULT 0,
-    spec_return_td DECIMAL (4,2) NOT NULL DEFAULT 6,
-    spec_fg DECIMAL (4,2) NOT NULL DEFAULT 3, 
-    spec_punt DECIMAL (4,2) NOT NULL DEFAULT 0
+    two_point_pass DECIMAL (4,2) NOT NULL DEFAULT 2
 );
+
+/* after some reflection, we're only really going to have these settings called all at
+once when users are checking the scoring settings of a league.  When we reference them
+to apply scoring, we'll likely be applying a only a subset for each player.  So instead
+of one big scoring table, we'll split it into three, regarding offense, defense and special
+teams.  We'll also replace the scaling yard thresholds (like the points allowed) and instead
+have the defense start with a bonus, that diminishes for every yard gained.  So default
+you get 3 points for 0 yards, and start going negative when the defense gives up 300 yards.
+*/
+
+DROP TABLE IF EXISTS scoring_settings_defense;
+CREATE TABLE scoring_settings_defense (
+    id INT NOT NULL UNIQUE,
+    touchdown DECIMAL (4,2) NOT NULL DEFAULT 6,
+    sack DECIMAL (4,2) NOT NULL DEFAULT 1,
+    interception DECIMAL (4,2) NOT NULL DEFAULT 3,
+    safety DECIMAL (4,2) NOT NULL DEFAULT 2,
+    shutout DECIMAL (4,2) NOT NULL DEFAULT 10,
+    points_6 DECIMAL (4,2) NOT NULL DEFAULT 7,
+    points_13 DECIMAL (4,2) NOT NULL DEFAULT 4,
+    points_20 DECIMAL (4,2) NOT NULL DEFAULT 1,
+    points_27 DECIMAL (4,2) NOT NULL DEFAULT 0,
+    points_34 DECIMAL (4,2) NOT NULL DEFAULT -1,
+    points_35 DECIMAL (4,2) NOT NULL DEFAULT -4,
+    yardBonus DECIMAL (4,2) NOT NULL DEFAULT 3,
+    yards DECIMAL (4,2) NOT NULL DEFAULT -0.01
+);
+
+/*
+For the time being we'll just inlude kicker stats.  Returns can be covered by defensive touchdowns
+until IDP is implemented.
+*/
+DROP TABLE IF EXISTS scoring_settings_special;
+CREATE TABLE scoring_settings_special (
+    id INT NOT NULL UNIQUE,
+    fg_29 DECIMAL (4,2) NOT NULL DEFAULT 3,
+    fg_39 DECIMAL (4,2) NOT NULL DEFAULT 3,
+    fg_49 DECIMAL (4,2) NOT NULL DEFAULT 3,
+    fg_50 DECIMAL (4,2) NOT NULL DEFAULT 3,
+    extra_point DECIMAL (4,2) NOT NULL DEFAULT 1
+);
+
+
+/*
+    TODO:
+    spec_punt DECIMAL (4,2) NOT NULL DEFAULT 0 --Not important at the moment
+    def_tackle DECIMAL (4,2) NOT NULL DEFAULT 0, --Individual Defensive players
+    spec_return_yards DECIMAL (4,2) NOT NULL DEFAULT 0, --I don't think I'm tracking this stat in demo
+    spec_return_td DECIMAL (4,2) NOT NULL DEFAULT 6, --covered by misc td atm
+*/
+
+
+
 /*
 Invites_0 will hold our unregisted league invites.  We'll use 0 as we refer to an
 anonymous user id as zero several times in the front end.  We could got with something
@@ -115,4 +166,4 @@ DROP TABLE IF EXISTS invites_0;
 CREATE TABLE invites_0 (
     league INT NOT NULL,
     email VARCHAR(256) NOT NULL
-)
+);

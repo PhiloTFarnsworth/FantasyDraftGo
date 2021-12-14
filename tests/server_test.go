@@ -212,7 +212,7 @@ func TestLoginBadUser(t *testing.T) {
 
 func TestCreateLeague(t *testing.T) {
 	a := larryClient
-	leagueSettings := `{"maxOwner":"4","league":"All Arry League","team":"Lawrence of Arry-bia"}`
+	leagueSettings := `{"maxOwner":4,"league":"All Arry League","team":"Lawrence of Arry-bia"}`
 	w, err := postJSON(a, "/createleague", leagueSettings, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
@@ -430,20 +430,20 @@ func TestGetDraftSettings(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
-	want := `{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":false,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`
+	want := `{"draft":{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Time":"0001-01-01T00:00:00Z","DraftClock":0,"Rounds":15},"positional":{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":0,"Def":1,"K":1}}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
 	}
 }
 
-//SetAuction true
+//set draft clock to 2
 func TestSetDraftSettings(t *testing.T) {
 	a := larryClient
 
 	w, err := postJSON(a,
 		"/league/settings/setdraft/1",
-		`{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":true,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`,
+		`{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Time":"0001-01-01T00:00:00Z","DraftClock":2,"Rounds":15}`,
 		http.StatusOK)
 	if err != nil {
 		t.Errorf("bad request: %v", err)
@@ -462,26 +462,7 @@ func TestSetDraftSettings(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
-	want = `{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Auction":true,"Time":"0001-01-01T00:00:00Z","DraftClock":false,"Rounds":15,"Trades":false}`
-	if want != w.Body.String() {
-		t.Errorf("want %v", want)
-		t.Errorf("got %v", w.Body.String())
-	}
-}
-
-func TestGetPositionalSettings(t *testing.T) {
-	a := larryClient
-	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/league/settings/getpos/1", nil)
-	if err != nil {
-		t.Fatalf("Bad Request: %v", err)
-	}
-	req.Header.Add("Cookie", a.cookie)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("want %v got %v", http.StatusOK, w.Code)
-	}
-	want := `{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":0,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`
+	want = `{"draft":{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Time":"0001-01-01T00:00:00Z","DraftClock":2,"Rounds":15},"positional":{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":0,"Def":1,"K":1}}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -493,7 +474,7 @@ func TestSetPositionalSettings(t *testing.T) {
 	a := larryClient
 	w, err := postJSON(a,
 		"/league/settings/setpos/1",
-		`{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`,
+		`{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"K":1}`,
 		http.StatusOK)
 	if err != nil {
 		t.Errorf("bad request: %v", err)
@@ -503,7 +484,7 @@ func TestSetPositionalSettings(t *testing.T) {
 		t.Errorf("want %v got %v", want, w.Body.String())
 	}
 	w = httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/league/settings/getpos/1", nil)
+	req, err := http.NewRequest("GET", "/league/settings/getdraft/1", nil)
 	if err != nil {
 		t.Fatalf("Bad Request: %v", err)
 	}
@@ -512,7 +493,7 @@ func TestSetPositionalSettings(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
-	want = `{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"DL":0,"LB":0,"DB":0,"K":1,"P":0}`
+	want = `{"draft":{"ID":1,"Kind":"TRAD","DraftOrder":"SNAKE","Time":"0001-01-01T00:00:00Z","DraftClock":2,"Rounds":15},"positional":{"ID":1,"Kind":"TRAD","QB":1,"RB":2,"WR":2,"TE":1,"Flex":1,"Bench":6,"Superflex":2,"Def":1,"K":1}}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
