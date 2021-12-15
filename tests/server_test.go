@@ -512,7 +512,7 @@ func TestGetScoringSettings(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
-	want := `{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":6,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`
+	want := `{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":6,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -524,7 +524,7 @@ func TestSetScoringSettings(t *testing.T) {
 	a := larryClient
 	w, err := postJSON(a,
 		"/league/settings/setscor/1",
-		`{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`,
+		`{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`,
 		http.StatusOK)
 	if err != nil {
 		t.Errorf("bad request: %v", err)
@@ -543,7 +543,7 @@ func TestSetScoringSettings(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
-	want = `{"ID":1,"Kind":"TRAD","PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2,"DefenseTouchdown":6,"DefenseTackle":0,"DefenseSack":1,"DefenseInterception":3,"DefenseSafety":2,"DefenseShutout":10,"DefenseYards":-0.01,"SpecialReturnYards":0,"SpecialReturnTD":6,"SpecialFieldGoal":3,"SpecialPunt":0}`
+	want = `{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())

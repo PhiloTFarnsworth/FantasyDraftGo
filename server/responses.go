@@ -967,6 +967,10 @@ type PositionalSettings struct {
 	K         int
 }
 
+func (s *PositionalSettings) CountPositions() int {
+	return s.QB + s.RB + s.WR + s.TE + s.Flex + s.Bench + s.Superflex + s.Def + s.K
+}
+
 func (s *PositionalSettings) ScanRow(r scanners.Row) error {
 	return r.Scan(&s.ID,
 		&s.Kind,
@@ -1037,12 +1041,47 @@ func setPositionalSettings(c *gin.Context) {
 		return
 	}
 
-	_, err := db.Exec(`UPDATE positional_settings SET 
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+		return
+	}
+	defer tx.Rollback()
+
+	//Set those positions
+	_, err = tx.Exec(`UPDATE positional_settings SET 
 		kind=?, qb=?, rb=?, wr=?, te=?, flex=?, bench=?, superflex=?, def=?, k=? 
 		WHERE id=?`,
 		p.Kind, p.QB, p.RB, p.WR, p.TE, p.Flex, p.Bench, p.Superflex, p.Def, p.K,
 		p.ID)
+
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	//But we're not done yet.  We can't have a draft that has more rounds than there are open
+	//position slots on a roster (We could, but then you'd need users to immediately drop players)
+	//So we'll have to query draft settings, compare our position settings with the rounds setting
+	//and then adjust if there are more rounds than positions.
+	var rounds int
+	row := tx.QueryRow("SELECT rounds FROM draft_settings WHERE id=?", p.ID)
+	if err = row.Scan(&rounds); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	//Since we'll need to reproduce this rule on the front end, we'll just quietly update the
+	//draft settings rule here.
+	if rounds > p.CountPositions() {
+		_, err = tx.Exec("UPDATE draft_settings SET rounds=? WHERE id=?", p.CountPositions(), p.ID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
@@ -1053,7 +1092,6 @@ func setPositionalSettings(c *gin.Context) {
 //Now for the widowmaker
 type ScoringSettingsOff struct {
 	ID                 int
-	Kind               string
 	PassAttempt        float64
 	PassCompletion     float64
 	PassYard           float64
@@ -1075,6 +1113,7 @@ type ScoringSettingsOff struct {
 }
 
 type ScoringSettingDef struct {
+	ID           int
 	Touchdown    float64
 	Sack         float64
 	Interception float64
@@ -1091,6 +1130,7 @@ type ScoringSettingDef struct {
 }
 
 type ScoringSettingsSpe struct {
+	ID         int
 	Fg29       float64
 	Fg39       float64
 	Fg49       float64
@@ -1100,6 +1140,7 @@ type ScoringSettingsSpe struct {
 
 func (s *ScoringSettingsSpe) ScanRow(r scanners.Row) error {
 	return r.Scan(
+		&s.ID,
 		&s.Fg29,
 		&s.Fg39,
 		&s.Fg49,
@@ -1109,6 +1150,7 @@ func (s *ScoringSettingsSpe) ScanRow(r scanners.Row) error {
 
 func (s *ScoringSettingDef) ScanRow(r scanners.Row) error {
 	return r.Scan(
+		&s.ID,
 		&s.Touchdown,
 		&s.Sack,
 		&s.Interception,
@@ -1127,7 +1169,6 @@ func (s *ScoringSettingDef) ScanRow(r scanners.Row) error {
 func (s *ScoringSettingsOff) ScanRow(r scanners.Row) error {
 	return r.Scan(
 		&s.ID,
-		&s.Kind,
 		&s.PassAttempt,
 		&s.PassCompletion,
 		&s.PassYard,
@@ -1148,9 +1189,15 @@ func (s *ScoringSettingsOff) ScanRow(r scanners.Row) error {
 		&s.TwoPointPass)
 }
 
+type ScoringSettingsTotal struct {
+	O ScoringSettingsOff `json:"offense"`
+	D ScoringSettingDef  `json:"defense"`
+	S ScoringSettingsSpe `json:"special"`
+}
+
 func getScoringSettings(c *gin.Context) {
 	db := store.GetDB()
-	var s ScoringSettingsOff
+	var t ScoringSettingsTotal
 
 	leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -1158,12 +1205,25 @@ func getScoringSettings(c *gin.Context) {
 		return
 	}
 
-	row := db.QueryRow("SELECT * FROM scoring_settings WHERE id=?", leagueId)
-	if err = s.ScanRow(row); err != nil {
+	row := db.QueryRow("SELECT * FROM scoring_settings_offense WHERE id=?", leagueId)
+	if err = t.O.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
-	c.JSON(http.StatusOK, s)
+
+	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE id=?", leagueId)
+	if err = t.D.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE id=?", leagueId)
+	if err = t.S.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, t)
 }
 
 //While I've mostly kept the SQL right in our requests as raw as possible, this
@@ -1171,30 +1231,62 @@ func getScoringSettings(c *gin.Context) {
 //a 31 column table in general, modeling this on the front end is less than ideal.
 
 func setScoringSettings(c *gin.Context) {
-	// 	db := store.GetDB()
-	// 	var s ScoringSettingsOff
-	// 	if c.BindJSON(&s) != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
-	// 		return
-	// 	}
+	db := store.GetDB()
+	var t ScoringSettingsTotal
+	if c.BindJSON(&t) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
 
-	// 	_, err := db.Exec(`UPDATE scoring_settings SET
-	// 		kind=?, pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
-	// 		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
-	// 		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=?,
-	// 		def_td=?, def_tackle=?, def_sack=?, def_int=?, def_safety=?, def_shutout=?, def_yards=?,
-	// 		spec_return_yards=?, spec_return_td=?, spec_fg=?, spec_punt=?
-	// 		WHERE id=?`,
-	// 		s.Kind, s.PassAttempt, s.PassCompletion, s.PassYard, s.PassTouchdown, s.PassInterception, s.PassSack,
-	// 		s.RushAttempt, s.RushYard, s.RushTouchdown, s.ReceivingTarget, s.Reception, s.ReceivingYard, s.ReceivingTouchdown,
-	// 		s.Fumble, s.FumbleLost, s.MiscTouchdown, s.TwoPointConversion, s.TwoPointPass,
-	// 		s.DefenseTouchdown, s.DefenseTackle, s.DefenseSack, s.DefenseInterception, s.DefenseSafety, s.DefenseShutout, s.DefenseYards,
-	// 		s.SpecialReturnYards, s.SpecialReturnTD, s.SpecialFieldGoal, s.SpecialPunt,
-	// 		s.ID)
-	// 	if err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-	// 		return
-	// 	}
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+		return
+	}
+	defer tx.Rollback()
 
-	// 	c.JSON(http.StatusOK, gin.H{"ok": true})
+	_, err = tx.Exec(`UPDATE scoring_settings_offense SET 
+		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
+		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
+		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=? 
+		WHERE id=?`,
+		t.O.PassAttempt, t.O.PassCompletion, t.O.PassYard, t.O.PassTouchdown, t.O.PassInterception, t.O.PassSack,
+		t.O.RushAttempt, t.O.RushYard, t.O.RushTouchdown, t.O.ReceivingTarget, t.O.Reception, t.O.ReceivingYard, t.O.ReceivingTouchdown,
+		t.O.Fumble, t.O.FumbleLost, t.O.MiscTouchdown, t.O.TwoPointConversion, t.O.TwoPointPass,
+		t.O.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE scoring_settings_defense SET
+		touchdown=?, sack=?, interception=?, safety=?, shutout=?,
+		points_6=?, points_13=?, points_20=?, points_27=?, points_34=?, points_35=?,
+		yardBonus=?, yards=?
+		Where id=?`,
+		t.D.Touchdown, t.D.Sack, t.D.Interception, t.D.Safety, t.D.Shutout,
+		t.D.Points6, t.D.Points13, t.D.Points20, t.D.Points27, t.D.Points34, t.D.Points35,
+		t.D.YardBonus, t.D.Yards,
+		t.D.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE scoring_settings_special SET
+	fg_29=?, fg_39=?, fg_49=?, fg_50=?, extra_point=?
+	WHERE id=?`,
+		t.S.Fg29, t.S.Fg39, t.S.Fg49, t.S.Fg50, t.S.ExtraPoint,
+		t.S.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

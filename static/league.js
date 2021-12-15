@@ -124,7 +124,12 @@ function LeagueHome(props) {
                 </div>
             )
         default:
-            return <DraftSettings league={leagueProps.id} commissioner={commissioner} />
+            return( 
+                <div>
+                    <DraftSettings league={leagueProps.id} commissioner={commissioner} />
+                    <ScoringSettings league={leagueProps.id} commissioner={commissioner} />   
+                </div>
+            )
     }
 }
 
@@ -304,20 +309,20 @@ function LeagueSettings(props) {
 //categories.  Draft settings is pretty simple.  We'll present a "kind" selection, which will toggle between two set
 //defaults, and if the user selects custom they can have access to all the options in the table.
 function DraftSettings(props) {
-    const [settings, setSettings] = useState({})
+    const [settings, setSettings] = useState({ "draft": {}, "positional": {} })
     const [loading, setLoading] = useState(true)
     const [dForm, setDForm] = useState([])
     const [pForm, setPForm] = useState([])
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
 
-    const kindEnums = ['TRAD', 'CUSTOM']
-    const draftOrderEnums = ['SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM']
     //We should Identify which keys need which type of inputs.
     const selects = ['Kind', 'DraftOrder']
     const times = ['Time']
-    const checkboxes = ['Auction', 'DraftClock', 'Trades']
-    const numbers = ['Rounds']
+    const numbers = ['Rounds', 'DraftClock']
+    //And we need to identify our keys for draft and positional.
+    const draftKeys = ['Kind', 'DraftOrder', 'Time', "DraftClock", "Rounds"]
+
 
     useEffect(() => {
         let url = "/league/settings/getdraft/" + 1 //props.league
@@ -340,44 +345,54 @@ function DraftSettings(props) {
         e.preventDefault()
         //This should work because settings contains no references.
         let newSettings = Object.assign({}, settings)
-        
+        let key
+        //Why are you like this Javascript?
+        if (draftKeys.findIndex(s => s === e.target.name) != -1) {
+            key = "draft"
+        } else {
+            key = "positional"
+        }
+
         if (e.target.name.startsWith("Time")) {
-            let current = settings.Time.split("T")
+            let current = settings[key].Time.split("T")
             if (e.target.name == "Time_date") {
-                newSettings.Time = e.target.value + "T" + current[1]
+                newSettings[key].Time = e.target.value + "T" + current[1]
             } else {
-                newSettings.Time = current[0] + "T" + e.target.value
+                newSettings[key].Time = current[0] + "T" + e.target.value
             }
 
-            
+
         } else {
-            newSettings[e.target.name] = e.target.value
+            newSettings[key][e.target.name] = e.target.value
         }
-        
+
         setSettings(newSettings)
     }
 
     function findInputType(key) {
         if (selects.includes(key)) { return "select" }
         if (times.includes(key)) { return "time" }
-        if (checkboxes.includes(key)) { return "checkbox" }
         if (numbers.includes(key)) { return "number" }
         return "text"
     }
 
     function formPos() {
         var protoForm = []
-        Object.entries(settings.positional).forEach(([key, value]) => { 
+        Object.entries(settings.positional).forEach(([key, value]) => {
             if (key == "Kind") {
+                protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
                 protoForm.push(
-                    <select name={key} id={"pos_" + key} value={value}>
+                    <select name={key} id={"pos_" + key} value={value} onChange={handleChange}>
                         <option>Traditional</option>
                         <option>Individual Defensive Players</option>
                         <option>Custom</option>
                     </select>
                 )
+            } else if (key == "ID") {
+
             } else {
-                <input type="number" name={key} id={"pos_" + key} value={value} max={12}/>
+                protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
+                protoForm.push(<input type="number" name={key} id={"pos_" + key} value={value} max={12} onChange={handleChange} />)
             }
         })
         setPForm(protoForm)
@@ -389,41 +404,48 @@ function DraftSettings(props) {
             switch (findInputType(key)) {
                 case "select":
                     let selectMeat = key == "Kind" ?
-                        [<option value="TRAD">Traditional</option>, <option value="CUSTOM">Custom</option>] :
+                        [<option value="TRAD">Traditional</option>, <option value="AUCTION">Custom</option>] :
                         [<option value="SNAKE">Snake</option>, <option value="STRAIGHT">Straight</option>, <option value="CURSED">Cursed</option>]
+                    protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
                     protoForm.push(<select name={key} id={"draft_" + key} value={value} onChange={handleChange}>
                         {selectMeat.map(o => o)}
                     </select>)
                     break;
                 case "number":
+                    protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
                     protoForm.push(
                         <div>
                             <label htmlFor={"draft_" + key}>{key}</label>
                             <input type="number" name={key} id={"draft_" + key} value={value} onChange={handleChange} />
                         </div>)
+                        
                     break;
-                case "checkbox":
-                    protoForm.push(
-                        <div>
-                            <input type="checkbox" name={key} id={"draft_" + key} checked={value} onChange={handleCheckbox} />
-                            <label htmlFor={key}>{key}</label>
-                        </div>
-                    )
-                    break;
+                // case "checkbox":
+                //     protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)    
+                // protoForm.push(
+                //         <div>
+                //             <input type="checkbox" name={key} id={"draft_" + key} checked={value} onChange={handleCheckbox} />
+                //             <label htmlFor={key}>{key}</label>
+                //         </div>
+                //     )
+                //     break;
                 case "time":
                     let today = new Date(Date.now()).toISOString().split("T")
                     let split = value.split("T")
+                    protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
                     protoForm.push(
                         <div>
                             <label htmlFor={key + "_date"}>Draft Start</label>
                             <input type="date" name={key + "_date"} id={"draft_" + key + "_date"} min={today[0]} value={split[0]} onChange={handleChange} />
                             <input type="time" name={key + "_time"} id={"draft_" + key + "_time"} value={split[1].replace("Z", "")} onChange={handleChange} />
                         </div>)
+                        
                     break;
                 default:
                     key == "ID" ? "" :
-                        protoForm.push(<input type="text" name={key} id={"draft_" + key} value={value} onChange={handleChange} />)
-
+                    protoForm.push(<label htmlFor={"pos_" + key}>{key}</label>)
+                    protoForm.push(<input type="text" name={key} id={"draft_" + key} value={value} onChange={handleChange} />)
+                        
             }
         })
         setDForm(protoForm)
@@ -462,116 +484,53 @@ function DraftSettings(props) {
             <h1>Draft Settings</h1>
             <form name="draft">
                 {dForm.map(s => s)}
-            </form>
-            <form name="pos">
-                {pForm.map(s=>s)}
+                <h2>Positional Settings</h2>
+                {pForm.map(s => s)}
+                <input type="submit">Change Draft settings</input>
             </form>
         </div>
     )
 }
 
-//Much like draft settings, we'll have presets the user can choose from, then a fully customizable form if they choose 
-//the custom option
-// function PositionalSettings(props) {
-//     const [settings, setSettings] = useState({})
-//     const [loading, setLoading] = useState(true)
-//     const [form, setForm] = useState([])
-
-//     useEffect(() => {
-//         let url = "/league/settings/getpos/" + props.league
-//         fetch(url, { method: "GET" })
-//             .then(response => response.json())
-//             .then(data => setSettings(data))
-//             .catch(error => console.error(error))
-//         setLoading(true)
-//     }, [])
-
-//     useEffect(() => {
-//         formBuilder()
-//     }, [settings])
-
-//     //Not as necessary as the DraftSettings formBuilder, but I'm kinda liking the pattern for large forms
-//     function formBuilder() {
-//         var protoForm = []
-//         Object.entries(settings).forEach(([key, value]) => { 
-//             if (key == "Kind") {
-//                 protoForm.push(
-//                     <select name={key} id={"pos_" + key} value={value}>
-//                         <option>Traditional</option>
-//                         <option>Individual Defensive Players</option>
-//                         <option>Custom</option>
-//                     </select>
-//                 )
-//             } else {
-//                 <input type="number" name={key} id={"pos_" + key} value={value} max={12}/>
-//             }
-//         })
-//         setForm(protoForm)
-//     }
-
-//     if (loading) {
-//         return (
-//             <div>
-//                 loading...
-//             </div>
-//         )
-//     }
-//     if (User.id !== props.commissioner.id) {
-//         return (
-//             <div>
-//                 <h1>Positional Settings</h1>
-//                 {Object.entries(settings).forEach(([key, value]) => {
-//                     key == "id" ? "" :
-//                         <div>
-//                             <h6>{key}:</h6><p>{value}</p>
-//                         </div>
-//                 })}
-//             </div>
-//         )
-//     }
-
-//     return (
-//         <div>
-//             <h1>Positional Settings</h1>
-//             <form>
-//                 {form.map(s => s)}
-//             </form>
-//         </div>
-//     )
-// }
-
 //Finally, Scoring settings 
 function ScoringSettings(props) {
     const [settings, setSettings] = useState({})
+    const [form, setForm] = useState([])
     const [loading, setLoading] = useState(true)
+    const User = useContext(UserContext)
 
     useEffect(() => {
-        let url = "/league/settings/getscor/" + props.league
+        let url = "/league/settings/getscor/" + 1
         fetch(url, { method: "GET" })
             .then(response => response.json())
             .then(data => setSettings(data))
             .catch(error => console.error(error))
-        setLoading(true)
+        setLoading(false)
     }, [])
+
+    useEffect(() => {
+        formBuilder()
+    }, [settings])
+
+    function handleChange(e) {
+        e.preventDefault()
+        let newSettings = Object.assign({}, settings)
+        if (e.target.name)
+        newSettings[e.target.name]
+    }
+
 
     function formBuilder() {
         var protoForm = []
-        Object.entries(settings).forEach(([key, value]) => { 
-            if (key == "Kind") {
-                protoForm.push(
-                    <select name={key} id={"pos_" + key} value={value}>
-                        <option>Traditional</option>
-                        <option>Points Per Reception</option>
-                        <option>Custom</option>
-                    </select>
-                )
-            } else {
-                <input type="number" name={key} id={"pos_" + key} value={value} max={12}/>
-            }
+        Object.entries(settings).forEach(([key, value]) => {
+            Object.entries(value).forEach(([key2, value2]) => {
+                protoForm.push(<label htmlFor={key2}>{key2}</label>)
+                protoForm.push(<input type="number" name={key2} id={"score_" + key2} value={value2} max={12} />)
+            })
         })
         setForm(protoForm)
     }
-    
+
 
     if (loading) {
         return (
@@ -593,4 +552,13 @@ function ScoringSettings(props) {
             </div>
         )
     }
+
+    return(
+        <div>
+            <h1>Scoring Settings</h1>
+            <form>
+                {form.map(s => s)}
+            </form>
+        </div>
+    )
 }

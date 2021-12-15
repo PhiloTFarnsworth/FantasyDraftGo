@@ -82,7 +82,6 @@ possible
 DROP TABLE IF EXISTS scoring_settings_offense;
 CREATE TABLE scoring_settings_offense (
     id INT NOT NULL UNIQUE,
-    kind ENUM('TRAD', 'PPR', 'CUSTOM') DEFAULT 'TRAD',
     pass_att DECIMAL(4,2) NOT NULL DEFAULT 0,
     pass_comp DECIMAL(4,2) NOT NULL DEFAULT 0,
     pass_yard DECIMAL(4,2) NOT NULL DEFAULT 0.04,
