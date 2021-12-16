@@ -935,13 +935,13 @@ func lockLeague(c *gin.Context) {
 	}
 
 	//With only a single command, I think we're fine to simply run as is instead of throwing it into a transaction
-	_, err := db.Exec("UPDATE league SET state='DRAFT' WHERE id=?", b.ID)
+	_, err := db.Exec("UPDATE league SET state='PREDRAFT' WHERE id=?", b.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"state": "DRAFT"})
+	c.JSON(http.StatusOK, gin.H{"state": "PREDRAFT"})
 }
 
 type DraftSettings struct {
@@ -983,110 +983,6 @@ func (s *PositionalSettings) ScanRow(r scanners.Row) error {
 		&s.Superflex,
 		&s.Def,
 		&s.K)
-}
-
-//getDraftSettings will just pull up draft settings and positional settings.
-func getDraftSettings(c *gin.Context) {
-	db := store.GetDB()
-	var d DraftSettings
-	var p PositionalSettings
-	leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	//get those sweet draft settings.
-	row := db.QueryRow("SELECT * FROM draft_settings WHERE id=?", leagueId)
-	if err = row.Scan(&d.ID, &d.Kind, &d.DraftOrder, &d.Time, &d.DraftClock, &d.Rounds); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	row = db.QueryRow("SELECT * FROM positional_settings WHERE id=?", leagueId)
-	if err = p.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"draft": d, "positional": p})
-}
-
-func setDraftSettings(c *gin.Context) {
-	db := store.GetDB()
-	var d DraftSettings
-	if c.BindJSON(&d) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
-		return
-	}
-
-	_, err := db.Exec(`UPDATE draft_settings SET 
-		kind=?, draftOrder=?, time=?, draftClock=?, rounds=? 
-		WHERE id=?`,
-		d.Kind, d.DraftOrder, d.Time, d.DraftClock, d.Rounds,
-		d.ID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func setPositionalSettings(c *gin.Context) {
-	db := store.GetDB()
-	var p PositionalSettings
-	if c.BindJSON(&p) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
-		return
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
-		return
-	}
-	defer tx.Rollback()
-
-	//Set those positions
-	_, err = tx.Exec(`UPDATE positional_settings SET 
-		kind=?, qb=?, rb=?, wr=?, te=?, flex=?, bench=?, superflex=?, def=?, k=? 
-		WHERE id=?`,
-		p.Kind, p.QB, p.RB, p.WR, p.TE, p.Flex, p.Bench, p.Superflex, p.Def, p.K,
-		p.ID)
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	//But we're not done yet.  We can't have a draft that has more rounds than there are open
-	//position slots on a roster (We could, but then you'd need users to immediately drop players)
-	//So we'll have to query draft settings, compare our position settings with the rounds setting
-	//and then adjust if there are more rounds than positions.
-	var rounds int
-	row := tx.QueryRow("SELECT rounds FROM draft_settings WHERE id=?", p.ID)
-	if err = row.Scan(&rounds); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	//Since we'll need to reproduce this rule on the front end, we'll just quietly update the
-	//draft settings rule here.
-	if rounds > p.CountPositions() {
-		_, err = tx.Exec("UPDATE draft_settings SET rounds=? WHERE id=?", p.CountPositions(), p.ID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-			return
-		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 //Now for the widowmaker
@@ -1195,6 +1091,153 @@ type ScoringSettingsTotal struct {
 	S ScoringSettingsSpe `json:"special"`
 }
 
+type FullDraftSettings struct {
+	D DraftSettings        `json:"draft"`
+	P PositionalSettings   `json:"positional"`
+	S ScoringSettingsTotal `json:"scoring"`
+}
+
+//While a little overwhelming, draft settings contains all the big customizable areas for a league.
+//Initially I was thinking of splitting these requests accross several smaller components, but upon
+//further reflection, I don't think it really helps much to be able to change these settings after
+//the draft has commenced.
+func getDraftSettings(c *gin.Context) {
+	db := store.GetDB()
+	var f FullDraftSettings
+	leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	//get those sweet draft settings.
+	row := db.QueryRow("SELECT * FROM draft_settings WHERE id=?", leagueId)
+	if err = row.Scan(&f.D.ID, &f.D.Kind, &f.D.DraftOrder, &f.D.Time, &f.D.DraftClock, &f.D.Rounds); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	row = db.QueryRow("SELECT * FROM positional_settings WHERE id=?", leagueId)
+	if err = f.P.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	row = db.QueryRow("SELECT * FROM scoring_settings_offense WHERE id=?", leagueId)
+	if err = f.S.O.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE id=?", leagueId)
+	if err = f.S.D.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE id=?", leagueId)
+	if err = f.S.S.ScanRow(row); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, f)
+}
+
+//Setdraftsettings will update draft & positional settings
+func setDraftSettings(c *gin.Context) {
+	db := store.GetDB()
+	var f FullDraftSettings
+	if c.BindJSON(&f) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+		return
+	}
+	defer tx.Rollback()
+
+	//Set those positions
+	_, err = tx.Exec(`UPDATE positional_settings SET 
+	kind=?, qb=?, rb=?, wr=?, te=?, flex=?, bench=?, superflex=?, def=?, k=? 
+	WHERE id=?`,
+		f.P.Kind, f.P.QB, f.P.RB, f.P.WR, f.P.TE, f.P.Flex, f.P.Bench, f.P.Superflex, f.P.Def, f.P.K,
+		f.P.ID)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	//If implemented, we would check positional kind here to see which stats would be zeroed out
+	//I.E. if individual defensive player we would zero yard_bonus, yards and all the point
+	//allowed fields, conversly if traditional we would make sure individual tackles are zeroed out
+
+	_, err = tx.Exec(`UPDATE scoring_settings_offense SET 
+		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
+		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
+		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=? 
+		WHERE id=?`,
+		f.S.O.PassAttempt, f.S.O.PassCompletion, f.S.O.PassYard, f.S.O.PassTouchdown, f.S.O.PassInterception, f.S.O.PassSack,
+		f.S.O.RushAttempt, f.S.O.RushYard, f.S.O.RushTouchdown, f.S.O.ReceivingTarget, f.S.O.Reception, f.S.O.ReceivingYard, f.S.O.ReceivingTouchdown,
+		f.S.O.Fumble, f.S.O.FumbleLost, f.S.O.MiscTouchdown, f.S.O.TwoPointConversion, f.S.O.TwoPointPass,
+		f.S.O.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE scoring_settings_defense SET
+		touchdown=?, sack=?, interception=?, safety=?, shutout=?,
+		points_6=?, points_13=?, points_20=?, points_27=?, points_34=?, points_35=?,
+		yardBonus=?, yards=?
+		Where id=?`,
+		f.S.D.Touchdown, f.S.D.Sack, f.S.D.Interception, f.S.D.Safety, f.S.D.Shutout,
+		f.S.D.Points6, f.S.D.Points13, f.S.D.Points20, f.S.D.Points27, f.S.D.Points34, f.S.D.Points35,
+		f.S.D.YardBonus, f.S.D.Yards,
+		f.S.D.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE scoring_settings_special SET
+	fg_29=?, fg_39=?, fg_49=?, fg_50=?, extra_point=?
+	WHERE id=?`,
+		f.S.S.Fg29, f.S.S.Fg39, f.S.S.Fg49, f.S.S.Fg50, f.S.S.ExtraPoint,
+		f.S.S.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	var rounds int
+	if f.D.Rounds > f.P.CountPositions() {
+		rounds = f.P.CountPositions()
+	} else {
+		rounds = f.D.Rounds
+	}
+	_, err = tx.Exec(`UPDATE draft_settings SET 
+		kind=?, draftOrder=?, time=?, draftClock=?, rounds=? 
+		WHERE id=?`,
+		f.D.Kind, f.D.DraftOrder, f.D.Time, f.D.DraftClock, rounds,
+		f.D.ID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+//Individual lookup for scoring settings.  Not sure if necessary
 func getScoringSettings(c *gin.Context) {
 	db := store.GetDB()
 	var t ScoringSettingsTotal
@@ -1226,67 +1269,91 @@ func getScoringSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, t)
 }
 
-//While I've mostly kept the SQL right in our requests as raw as possible, this
-//right here will need some examining.  Besides the difficulty in working with
-//a 31 column table in general, modeling this on the front end is less than ideal.
-
-func setScoringSettings(c *gin.Context) {
+//While we have a time for the draft to start, I think it's cromulent to actually have the commissioner
+//manually start the draft.  I see the time provided in settings as more of a suggestion, as this allows
+//the commissioner to delay the draft if there's difficulties for other users to access the draft area
+//at the agreed time.
+func startDraft(c *gin.Context) {
 	db := store.GetDB()
-	var t ScoringSettingsTotal
-	if c.BindJSON(&t) != nil {
+	type LockLeagueBody struct {
+		ID int64 `json:"league"`
+	}
+	var b LockLeagueBody
+	if c.BindJSON(&b) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
-		return
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`UPDATE scoring_settings_offense SET 
-		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
-		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
-		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=? 
-		WHERE id=?`,
-		t.O.PassAttempt, t.O.PassCompletion, t.O.PassYard, t.O.PassTouchdown, t.O.PassInterception, t.O.PassSack,
-		t.O.RushAttempt, t.O.RushYard, t.O.RushTouchdown, t.O.ReceivingTarget, t.O.Reception, t.O.ReceivingYard, t.O.ReceivingTouchdown,
-		t.O.Fumble, t.O.FumbleLost, t.O.MiscTouchdown, t.O.TwoPointConversion, t.O.TwoPointPass,
-		t.O.ID)
+	//With only a single command, I think we're fine to simply run as is instead of throwing it into a transaction
+	_, err := db.Exec("UPDATE league SET state='DRAFT' WHERE id=?", b.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	_, err = tx.Exec(`UPDATE scoring_settings_defense SET
-		touchdown=?, sack=?, interception=?, safety=?, shutout=?,
-		points_6=?, points_13=?, points_20=?, points_27=?, points_34=?, points_35=?,
-		yardBonus=?, yards=?
-		Where id=?`,
-		t.D.Touchdown, t.D.Sack, t.D.Interception, t.D.Safety, t.D.Shutout,
-		t.D.Points6, t.D.Points13, t.D.Points20, t.D.Points27, t.D.Points34, t.D.Points35,
-		t.D.YardBonus, t.D.Yards,
-		t.D.ID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	_, err = tx.Exec(`UPDATE scoring_settings_special SET
-	fg_29=?, fg_39=?, fg_49=?, fg_50=?, extra_point=?
-	WHERE id=?`,
-		t.S.Fg29, t.S.Fg39, t.S.Fg49, t.S.Fg50, t.S.ExtraPoint,
-		t.S.ID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	c.JSON(http.StatusOK, gin.H{"state": "DRAFT"})
 }
+
+//A basic way to change scoring settings.  If implemented, we would also need to
+//inform the league of the changes as well as update the scores from all previous
+//games to reflect the changes.
+// func setScoringSettings(c *gin.Context) {
+// 	db := store.GetDB()
+// 	var t ScoringSettingsTotal
+// 	if c.BindJSON(&t) != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+// 		return
+// 	}
+
+// 	tx, err := db.Begin()
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+// 		return
+// 	}
+// 	defer tx.Rollback()
+
+// 	_, err = tx.Exec(`UPDATE scoring_settings_offense SET
+// 		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
+// 		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
+// 		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=?
+// 		WHERE id=?`,
+// 		t.O.PassAttempt, t.O.PassCompletion, t.O.PassYard, t.O.PassTouchdown, t.O.PassInterception, t.O.PassSack,
+// 		t.O.RushAttempt, t.O.RushYard, t.O.RushTouchdown, t.O.ReceivingTarget, t.O.Reception, t.O.ReceivingYard, t.O.ReceivingTouchdown,
+// 		t.O.Fumble, t.O.FumbleLost, t.O.MiscTouchdown, t.O.TwoPointConversion, t.O.TwoPointPass,
+// 		t.O.ID)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+
+// 	_, err = tx.Exec(`UPDATE scoring_settings_defense SET
+// 		touchdown=?, sack=?, interception=?, safety=?, shutout=?,
+// 		points_6=?, points_13=?, points_20=?, points_27=?, points_34=?, points_35=?,
+// 		yardBonus=?, yards=?
+// 		Where id=?`,
+// 		t.D.Touchdown, t.D.Sack, t.D.Interception, t.D.Safety, t.D.Shutout,
+// 		t.D.Points6, t.D.Points13, t.D.Points20, t.D.Points27, t.D.Points34, t.D.Points35,
+// 		t.D.YardBonus, t.D.Yards,
+// 		t.D.ID)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+
+// 	_, err = tx.Exec(`UPDATE scoring_settings_special SET
+// 	fg_29=?, fg_39=?, fg_49=?, fg_50=?, extra_point=?
+// 	WHERE id=?`,
+// 		t.S.Fg29, t.S.Fg39, t.S.Fg49, t.S.Fg50, t.S.ExtraPoint,
+// 		t.S.ID)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+
+// 	if err = tx.Commit(); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{"ok": true})
+// }
