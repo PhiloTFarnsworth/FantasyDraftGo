@@ -163,7 +163,7 @@ function LeagueHome(props) {
                 </div>
             )
         case "DRAFT":
-            return <div>loading...</div>
+            return <Draft leagueID={leagueProps.id} />
         default:
             return null
             

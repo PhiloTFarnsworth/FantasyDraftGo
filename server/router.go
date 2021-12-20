@@ -15,6 +15,15 @@ func NewRouter() *gin.Engine {
 
 	store := cookie.NewStore([]byte("secret"))
 
+	//Multi Room example.  'h' will be our main draft hub
+	h := hub{
+		rooms:      map[string]map[*connection]bool{},
+		broadcast:  make(chan message),
+		register:   make(chan subscription),
+		unregister: make(chan subscription),
+	}
+	go h.run()
+
 	r.Use(sessions.Sessions("mysession", store))
 
 	r.Use(csrf.Middleware(csrf.Options{
@@ -47,5 +56,11 @@ func NewRouter() *gin.Engine {
 	r.GET("/league/settings/getscor/:id", getScoringSettings)
 	//r.POST("/league/settings/setscor/:id", setScoringSettings)
 	r.POST("startdraft", startDraft)
+
+	//Websocket
+	r.GET("/ws/draft/:id", func(c *gin.Context) {
+		serveWs(c, h)
+	})
+
 	return r
 }

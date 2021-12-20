@@ -413,8 +413,8 @@ func TestLockLeague(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Body.String() != `{"state":"DRAFT"}` {
-		t.Errorf(`want {"state": "DRAFT"} got %v`, w.Body.String())
+	if w.Body.String() != `{"state":"PREDRAFT"}` {
+		t.Errorf(`want {"state": "PREDRAFT"} got %v`, w.Body.String())
 	}
 }
 
@@ -466,6 +466,17 @@ func TestSetDraftSettings(t *testing.T) {
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+func TestStartDraft(t *testing.T) {
+	a := larryClient
+	w, err := postJSON(a, "/startdraft", `{"league":1}`, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Body.String() != `{"state":"DRAFT"}` {
+		t.Errorf(`want {"state": "DRAFT"} got %v`, w.Body.String())
 	}
 }
 

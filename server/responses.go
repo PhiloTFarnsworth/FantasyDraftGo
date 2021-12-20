@@ -56,7 +56,8 @@ func login(c *gin.Context) {
 	var a LogAccount
 	session := sessions.Default(c)
 	db := store.GetDB()
-	if c.BindJSON(&a) != nil {
+	if err := c.BindJSON(&a); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Something Went Wrong!", "ok": false})
 		return
 	}
@@ -104,7 +105,8 @@ func register(c *gin.Context) {
 	session := sessions.Default(c)
 	db := store.GetDB()
 
-	if c.BindJSON(&a) != nil {
+	if err := c.BindJSON(&a); err != nil {
+		fmt.Println(err)
 		//JSON notification of bad values
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Malformed Request"})
 		fmt.Println("Didn't assign values")
@@ -302,7 +304,8 @@ func createLeague(c *gin.Context) {
 	}
 
 	var s LeagueInitSettings
-	if c.BindJSON(&s) != nil {
+	if err := c.BindJSON(&s); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Malformed Request"})
 		fmt.Println("Didn't assign values")
 		return
@@ -640,7 +643,7 @@ func InviteUser(c *gin.Context) {
 		League  int64  `json:"league" form:"league"`
 	}
 	var v Invite
-	if c.BindJSON(&v) != nil {
+	if err := c.BindJSON(&v); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -779,7 +782,8 @@ func joinLeague(c *gin.Context) {
 	}
 	var t TeamSubmission
 	user := session.Get("user").(int64)
-	if c.BindJSON(&t) != nil {
+	if err := c.BindJSON(&t); err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -869,7 +873,7 @@ func leagueSettings(c *gin.Context) {
 	}
 	var s LeagueSettings
 	session := sessions.Default(c)
-	if c.BindJSON(&s) != nil {
+	if err := c.BindJSON(&s); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -929,7 +933,7 @@ func lockLeague(c *gin.Context) {
 		ID int64 `json:"league"`
 	}
 	var b LockLeagueBody
-	if c.BindJSON(&b) != nil {
+	if err := c.BindJSON(&b); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -1148,7 +1152,7 @@ func getDraftSettings(c *gin.Context) {
 func setDraftSettings(c *gin.Context) {
 	db := store.GetDB()
 	var f FullDraftSettings
-	if c.BindJSON(&f) != nil {
+	if err := c.BindJSON(&f); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -1279,7 +1283,7 @@ func startDraft(c *gin.Context) {
 		ID int64 `json:"league"`
 	}
 	var b LockLeagueBody
-	if c.BindJSON(&b) != nil {
+	if err := c.BindJSON(&b); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 		return
 	}
@@ -1300,7 +1304,7 @@ func startDraft(c *gin.Context) {
 // func setScoringSettings(c *gin.Context) {
 // 	db := store.GetDB()
 // 	var t ScoringSettingsTotal
-// 	if c.BindJSON(&t) != nil {
+// 	if err := c.BindJSON(&t); err != nil {
 // 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
 // 		return
 // 	}

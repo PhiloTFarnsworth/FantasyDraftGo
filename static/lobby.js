@@ -153,7 +153,8 @@ function Invitations(props) {
 
     function selectInvite(e) {
         e.preventDefault()
-        setSelection(e.target.id)
+        var numeral = parseInt(e.target.id, 10)
+        setSelection(numeral)
     }
 
     function clearSelection() {
@@ -212,7 +213,8 @@ function LeagueWizard(props) {
 
     function handleMaxOwner(e) {
         e.preventDefault()
-        setMaxOwner(e.target.value)
+        var numeral = parseInt(e.target.value, 10)
+        setMaxOwner(numeral)
     }
 
     //We want to create a league in our database, then we'll return the relevant league properties to the lobby level,
