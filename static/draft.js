@@ -40,7 +40,7 @@ function Draft(props) {
 
     function submit(e) {
         e.preventDefault()
-        draftSocket.current.send(msg.value)
+        draftSocket.current.send(JSON.stringify({"Kind":"message", "Payload": msg.value}))
     }
 
     return(

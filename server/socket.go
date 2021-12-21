@@ -1,9 +1,13 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"strconv"
 	"time"
 
+	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -38,14 +42,26 @@ type connection struct {
 	send chan []byte
 }
 
+//represents a single client in a single room
+type subscription struct {
+	conn *connection
+	room string
+}
+
+//We'll keep message from the example for our chat.
 type message struct {
 	data []byte
 	room string
 }
 
-type subscription struct {
-	conn *connection
-	room string
+//We could conceivably pass all this information along the message struct (see the python implementation),
+//but I think we get a benefit out of creating a different channel for different functions.
+type draftPick struct {
+	player int64
+	pick   int64
+	team   int64
+	league int64
+	room   string
 }
 
 // hub maintains the set of active connections and broadcasts messages to the
@@ -62,6 +78,8 @@ type hub struct {
 
 	// Unregister requests from connections.
 	unregister chan subscription
+
+	pick chan draftPick
 }
 
 func newHub() *hub {
@@ -70,6 +88,7 @@ func newHub() *hub {
 		broadcast:  make(chan message),
 		register:   make(chan subscription),
 		unregister: make(chan subscription),
+		pick:       make(chan draftPick),
 	}
 }
 
@@ -88,6 +107,9 @@ func (s subscription) readPump(h hub) {
 	c.ws.SetReadLimit(maxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
 	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	//Alright, so first step is we want to check what we are reading.  Because we're working a fair bit with
+	//JSON, I think the answer is to send all messages as json strings, with a type and a payload.  We'll
+	//use the type specified to interpret the payload.
 	for {
 		_, msg, err := c.ws.ReadMessage()
 		if err != nil {
@@ -96,8 +118,23 @@ func (s subscription) readPump(h hub) {
 			}
 			break
 		}
-		m := message{msg, s.room}
-		h.broadcast <- m
+
+		var decoded struct {
+			Kind    string
+			Payload json.RawMessage
+		}
+		err = json.Unmarshal(msg, &decoded)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		switch decoded.Kind {
+		case "message":
+			//Cut off the quotes from Payload and pass as a message.
+			m := message{[]byte(decoded.Payload[1 : len(decoded.Payload)-1]), s.room}
+			h.broadcast <- m
+			//case "pick":
+		}
 	}
 }
 
@@ -107,7 +144,8 @@ func (c *connection) write(mt int, payload []byte) error {
 	return c.ws.WriteMessage(mt, payload)
 }
 
-// writePump pumps messages from the hub to the websocket connection.
+// writePump pumps messages from the hub to the websocket connection.  We're going to marshall any
+// complex data before we send it to the write pump, so this is left unaltered
 func (s *subscription) writePump() {
 	c := s.conn
 	ticker := time.NewTicker(pingPeriod)
@@ -133,7 +171,7 @@ func (s *subscription) writePump() {
 	}
 }
 
-// serveWs handles websocket requests from the peer.
+// serveWs handles websocket requests from the peer.  Adapted to take a *gin.Context
 func serveWs(c *gin.Context, h hub) {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	id := c.Param("id")
@@ -151,6 +189,7 @@ func serveWs(c *gin.Context, h hub) {
 func (h *hub) run() {
 	for {
 		select {
+		//indicate user has joined draft
 		case s := <-h.register:
 			connections := h.rooms[s.room]
 			if connections == nil {
@@ -159,6 +198,7 @@ func (h *hub) run() {
 			}
 			h.rooms[s.room][s.conn] = true
 		case s := <-h.unregister:
+			//indicate user has left draft then close
 			connections := h.rooms[s.room]
 			if connections != nil {
 				if _, ok := connections[s.conn]; ok {
@@ -170,6 +210,7 @@ func (h *hub) run() {
 				}
 			}
 		case m := <-h.broadcast:
+			//adjust m.data for frontend TODO
 			connections := h.rooms[m.room]
 			for c := range connections {
 				select {
@@ -179,6 +220,66 @@ func (h *hub) run() {
 					delete(connections, c)
 					if len(connections) == 0 {
 						delete(h.rooms, m.room)
+					}
+				}
+			}
+		case p := <-h.pick:
+			//First deal with the database
+			db := store.GetDB()
+
+			tx, err := db.Begin()
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			draftTable := "draft_" + strconv.FormatInt(p.league, 10)
+			newPick, err := db.Exec("INSERT INTO "+draftTable+" (player, team) VALUES (?,?)", p.player, p.team)
+			if err != nil {
+				fmt.Println(err)
+				tx.Rollback()
+			}
+
+			pickIdentity, err := newPick.LastInsertId()
+			if err != nil {
+				fmt.Println(err)
+				tx.Rollback()
+			}
+			if pickIdentity != p.pick {
+				//make sure that the pick's ID == the order of picks, otherwise we got some desync error
+				//That we should've prevented on the frontend
+				tx.Rollback()
+			}
+
+			if err = tx.Commit(); err != nil {
+				fmt.Print(err)
+			}
+
+			//What do we want to broadcast?  That the player has been taken by a team at a certain pick.
+			var thisPick struct {
+				Kind   string
+				Player int64
+				Team   int64
+				Pick   int64
+			}
+			thisPick.Kind = "draft"
+			thisPick.Pick = p.pick
+			thisPick.Player = p.player
+			thisPick.Team = p.team
+			b, err := json.Marshal(thisPick)
+			if err != nil {
+				fmt.Println(err)
+			}
+			//Then broadcast back to the other clients in room
+			connections := h.rooms[p.room]
+			for c := range connections {
+				select {
+				case c.send <- b:
+				//timeout
+				default:
+					close(c.send)
+					delete(connections, c)
+					if len(connections) == 0 {
+						delete(h.rooms, p.room)
 					}
 				}
 			}
