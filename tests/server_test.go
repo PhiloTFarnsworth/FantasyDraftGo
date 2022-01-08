@@ -48,9 +48,17 @@ func TestMain(m *testing.M) {
 	//./store/user.sql
 	err = store.BatchSQLFromFile(os.Getenv("FSUSA"), db)
 	if err != nil {
-		fmt.Println("league batch: ", err)
+		fmt.Println("user batch: ", err)
 		os.Exit(1)
 	}
+
+	//./store/playerimport/player.sql
+	err = store.BatchSQLFromFile(os.Getenv("FSPSA"), db)
+	if err != nil {
+		fmt.Println("player batch: ", err)
+		os.Exit(1)
+	}
+
 	r = server.NewRouter()
 
 	//Fake path to retrieve csrf token
@@ -479,56 +487,6 @@ func TestStartDraft(t *testing.T) {
 		t.Errorf(`want {"state": "DRAFT"} got %v`, w.Body.String())
 	}
 }
-
-// func TestGetScoringSettings(t *testing.T) {
-// 	a := larryClient
-// 	w := httptest.NewRecorder()
-// 	req, err := http.NewRequest("GET", "/league/settings/getscor/1", nil)
-// 	if err != nil {
-// 		t.Fatalf("Bad Request: %v", err)
-// 	}
-// 	req.Header.Add("Cookie", a.cookie)
-// 	r.ServeHTTP(w, req)
-// 	if w.Code != http.StatusOK {
-// 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
-// 	}
-// 	want := `{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":6,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`
-// 	if want != w.Body.String() {
-// 		t.Errorf("want %v", want)
-// 		t.Errorf("got %v", w.Body.String())
-// 	}
-// }
-
-//Set passtouchdown to 10
-// func TestSetScoringSettings(t *testing.T) {
-// 	a := larryClient
-// 	w, err := postJSON(a,
-// 		"/league/settings/setscor/1",
-// 		`{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`,
-// 		http.StatusOK)
-// 	if err != nil {
-// 		t.Errorf("bad request: %v", err)
-// 	}
-// 	want := `{"ok":true}`
-// 	if want != w.Body.String() {
-// 		t.Errorf("want %v got %v", want, w.Body.String())
-// 	}
-// 	w = httptest.NewRecorder()
-// 	req, err := http.NewRequest("GET", "/league/settings/getscor/1", nil)
-// 	if err != nil {
-// 		t.Fatalf("Bad Request: %v", err)
-// 	}
-// 	req.Header.Add("Cookie", a.cookie)
-// 	r.ServeHTTP(w, req)
-// 	if w.Code != http.StatusOK {
-// 		t.Errorf("want %v got %v", http.StatusOK, w.Code)
-// 	}
-// 	want = `{"offense":{"ID":1,"PassAttempt":0,"PassCompletion":0,"PassYard":0.04,"PassTouchdown":10,"PassInterception":-3,"PassSack":0,"RushAttempt":0,"RushYard":0.1,"RushTouchdown":6,"ReceivingTarget":0,"Reception":0,"ReceivingYard":0.1,"ReceivingTouchdown":6,"Fumble":-1,"FumbleLost":-2,"MiscTouchdown":6,"TwoPointConversion":2,"TwoPointPass":2},"defense":{"ID":1,"Touchdown":6,"Sack":1,"Interception":3,"Safety":2,"Shutout":10,"Points6":7,"Points13":4,"Points20":1,"Points27":0,"Points34":-1,"Points35":-4,"YardBonus":3,"Yards":-0.01},"special":{"ID":1,"Fg29":3,"Fg39":3,"Fg49":3,"Fg50":3,"ExtraPoint":1}}`
-// 	if want != w.Body.String() {
-// 		t.Errorf("want %v", want)
-// 		t.Errorf("got %v", w.Body.String())
-// 	}
-// }
 
 /*
 	HELPERS

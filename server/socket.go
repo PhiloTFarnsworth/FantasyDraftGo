@@ -38,6 +38,9 @@ type connection struct {
 	// The websocket connection.
 	ws *websocket.Conn
 
+	//The user that opened the connection
+	user int64
+
 	// Buffered channel of outbound messages.
 	send chan []byte
 }
@@ -54,6 +57,11 @@ type message struct {
 	room string
 }
 
+type chat struct {
+	Kind    string
+	Payload []byte
+}
+
 //We could conceivably pass all this information along the message struct (see the python implementation),
 //but I think we get a benefit out of creating a different channel for different functions.
 type draftPick struct {
@@ -62,6 +70,14 @@ type draftPick struct {
 	team   int64
 	league int64
 	room   string
+}
+
+//Status will inform the room whether a user has entered or left a draft instance.  This could be expanded further to include
+//functionality like varying states of being in a room (like an "away" status), but for now we'll keep it simple
+type status struct {
+	Kind   string
+	User   int64
+	Active bool
 }
 
 // hub maintains the set of active connections and broadcasts messages to the
@@ -174,13 +190,18 @@ func (s *subscription) writePump() {
 // serveWs handles websocket requests from the peer.  Adapted to take a *gin.Context
 func serveWs(c *gin.Context, h hub) {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	id := c.Param("id")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	conn := &connection{send: make(chan []byte, 256), ws: ws}
-	s := subscription{conn, id}
+	leagueID := c.Param("id")
+	var userID int64
+	if err = c.ShouldBindQuery(&userID); err != nil {
+		log.Println(err)
+		return
+	}
+	conn := &connection{send: make(chan []byte, 256), ws: ws, user: userID}
+	s := subscription{conn, leagueID}
 	h.register <- s
 	go s.writePump()
 	s.readPump(h)
@@ -191,12 +212,44 @@ func (h *hub) run() {
 		select {
 		//indicate user has joined draft
 		case s := <-h.register:
+			//get room, create if does not exist
 			connections := h.rooms[s.room]
 			if connections == nil {
 				connections = make(map[*connection]bool)
 				h.rooms[s.room] = connections
 			}
 			h.rooms[s.room][s.conn] = true
+			//user has joined room.  We want to send a message to all connections informing that the user joined the room as well as poll for all connections
+			//in the room.  We then pass all the active connections to the back to the originating user.  We can just pass a list of user ids since we can access
+			//their user info from the team info passed into the league prop.
+			u := status{Kind: "status", User: s.conn.user, Active: true}
+			b, err := json.Marshal(u)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			var userList struct {
+				Kind  string
+				Users []int64
+			}
+			userList.Kind = "users"
+
+			//Pass to all non originating connections, build user list
+			for c := range connections {
+				if c.user != s.conn.user {
+					c.send <- b
+				}
+				userList.Users = append(userList.Users, c.user)
+			}
+			b, err = json.Marshal(userList)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			//send userlist to originating user
+			s.conn.send <- b
+
 		case s := <-h.unregister:
 			//indicate user has left draft then close
 			connections := h.rooms[s.room]
@@ -206,15 +259,32 @@ func (h *hub) run() {
 					close(s.conn.send)
 					if len(connections) == 0 {
 						delete(h.rooms, s.room)
+					} else {
+						//If there are still open connections, pass a notification that this connection is closing
+						u := status{Kind: "status", User: s.conn.user, Active: false}
+						b, err := json.Marshal(u)
+						if err != nil {
+							fmt.Println(err)
+							return
+						}
+
+						for c := range connections {
+							c.send <- b
+						}
 					}
 				}
 			}
 		case m := <-h.broadcast:
-			//adjust m.data for frontend TODO
+			p := chat{Kind: "chat", Payload: m.data}
+			b, err := json.Marshal(p)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 			connections := h.rooms[m.room]
 			for c := range connections {
 				select {
-				case c.send <- m.data:
+				case c.send <- b:
 				default:
 					close(c.send)
 					delete(connections, c)
