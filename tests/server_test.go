@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/PhiloTFarnsworth/FantasySportsAF/server"
 	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
+	"github.com/PhiloTFarnsworth/FantasySportsAF/store/playerimport"
+	"github.com/PhiloTFarnsworth/FantasySportsAF/store/scanners"
 	"github.com/gin-gonic/gin"
 	csrf "github.com/utrack/gin-csrf"
 )
@@ -52,12 +55,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	//./store/playerimport/player.sql
-	err = store.BatchSQLFromFile(os.Getenv("FSPSA"), db)
-	if err != nil {
-		fmt.Println("player batch: ", err)
-		os.Exit(1)
-	}
+	playerimport.Import("testfsgo")
 
 	r = server.NewRouter()
 
@@ -65,6 +63,34 @@ func TestMain(m *testing.M) {
 	r.GET("csrftoken", func(c *gin.Context) { c.String(http.StatusOK, csrf.GetToken(c)) })
 
 	os.Exit(m.Run())
+}
+
+func TestPlayers(t *testing.T) {
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/draftpool", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	var p scanners.PlayerList
+	err = json.Unmarshal(w.Body.Bytes(), &p)
+	if err != nil {
+		t.Errorf("This happened: %v", err)
+	}
+
+	if len(p.Players) != 626 {
+		t.Errorf("want 626 got %v players", len(p.Players))
+	}
+	if p.Players[0].Name != "Derrick Henry" {
+		t.Errorf("wanted Derrick Henry, got %v", p.Players[0].Name)
+	}
+	if p.Players[625].Name != "Kendall Hinton" {
+		t.Errorf("wanted Kendall Hinton, got %v", p.Players[625].Name)
+	}
 }
 
 func TestAnonIndex(t *testing.T) {
@@ -76,7 +102,7 @@ func TestAnonIndex(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
 	//scuffed, but I don't really want to add a dependency for the single html file we parse.
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">0</script>`) {
