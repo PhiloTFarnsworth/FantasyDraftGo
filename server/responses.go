@@ -989,7 +989,6 @@ func (s *PositionalSettings) ScanRow(r scanners.Row) error {
 		&s.K)
 }
 
-//Now for the widowmaker
 type ScoringSettingsOff struct {
 	ID                 int
 	PassAttempt        float64
@@ -1296,4 +1295,55 @@ func startDraft(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"state": "DRAFT"})
+}
+
+//For now, we'll just retrieve all the players in the generic pool.  Later, we'll need to return defenses and kickers
+//as well
+func DraftPool(c *gin.Context) {
+	db := store.GetDB()
+	var p scanners.PlayerList
+	rows, err := db.Query("SELECT * FROM player")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err = p.ScanRow(rows); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, p)
+}
+
+type draftSlot struct {
+	Slot   int64
+	Player int64
+	Team   int64
+}
+
+func draftHistory(c *gin.Context) {
+	db := store.GetDB()
+	// leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+	// 	return
+	// }
+	var history []draftSlot
+	rows, err := db.Query("SELECT * FROM draft_" + c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var d draftSlot
+		if err = rows.Scan(&d.Slot, &d.Player, &d.Team); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
+		history = append(history, d)
+	}
+	c.JSON(http.StatusOK, history)
 }

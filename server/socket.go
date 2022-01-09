@@ -149,7 +149,19 @@ func (s subscription) readPump(h hub) {
 			//Cut off the quotes from Payload and pass as a message.
 			m := message{[]byte(decoded.Payload[1 : len(decoded.Payload)-1]), s.room}
 			h.broadcast <- m
-			//case "pick":
+		case "pick":
+			var n struct {
+				player int64
+				pick   int64
+				team   int64
+				league int64
+			}
+			err = json.Unmarshal(decoded.Payload, n)
+			if err != nil {
+				fmt.Println(err)
+			}
+			p := draftPick{n.player, n.pick, n.team, n.league, s.room}
+			h.pick <- p
 		}
 	}
 }

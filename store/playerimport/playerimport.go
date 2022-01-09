@@ -7,9 +7,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
 	"github.com/go-sql-driver/mysql"
 )
 
@@ -37,12 +37,12 @@ func Import(DBName string) {
 	}
 	fmt.Println("Connected!")
 
-	//After the heavy lifting of copy and pasting the above, we need to open nfl_2020.csv and then pass it into our database.
-	dir, err := filepath.Abs("")
-	if err != nil {
-		panic(err)
+	if err = store.BatchSQLFromFile(os.Getenv("FSPSA"), db); err != nil {
+		log.Fatal(err)
 	}
-	f, err := os.Open(filepath.Join(dir, "nfl_2020.csv"))
+
+	//After the heavy lifting of copy and pasting the above, we need to open nfl_2020.csv and then pass it into our database.
+	f, err := os.Open(os.Getenv("nflcsv"))
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func Import(DBName string) {
 			position = "WR"
 		}
 
-		result, err := db.Exec("INSERT INTO player (name, pfbr_name, team, position, age, games, starts, pass_completions, pass_attempts, pass_yards, pass_touchdowns, pass_interceptions, rush_attempts, rush_yards, rush_touchdowns, targets, receptions, receiving_yards, receiving_touchdowns, fumbles, fumbles_lost, all_touchdowns, two_point_conversion, two_point_pass, fantasy_points, point_per_reception, value_based) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+		_, err = db.Exec("INSERT INTO player (name, pfbr_name, team, position, age, games, starts, pass_completions, pass_attempts, pass_yards, pass_touchdowns, pass_interceptions, rush_attempts, rush_yards, rush_touchdowns, targets, receptions, receiving_yards, receiving_touchdowns, fumbles, fumbles_lost, all_touchdowns, two_point_conversion, two_point_pass, fantasy_points, point_per_reception, value_based) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
 			strings.TrimRight(names[0], "*+ "),
 			names[1],
 			player[2],
@@ -98,11 +98,11 @@ func Import(DBName string) {
 			panic(err)
 		}
 
-		id, err := result.LastInsertId()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(id)
+		// id, err := result.LastInsertId()
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// fmt.Println(id)
 	}
 }
 

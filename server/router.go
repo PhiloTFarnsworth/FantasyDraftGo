@@ -56,6 +56,8 @@ func NewRouter() *gin.Engine {
 	r.GET("/league/settings/getscor/:id", getScoringSettings)
 	//r.POST("/league/settings/setscor/:id", setScoringSettings)
 	r.POST("startdraft", startDraft)
+	r.GET("draftpool", DraftPool)
+	r.GET("/league/draft/:id", draftHistory)
 
 	//Websocket
 	r.GET("/ws/draft/:id", func(c *gin.Context) {

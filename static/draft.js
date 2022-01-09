@@ -4,15 +4,80 @@ function Draft(props) {
     const [draftPool, setDraftPool] = useState([])
     const [draftHistory, setDraftHistory] = useState([])
     const [statHeaders, setStatHeaders] = useState([])
-    const [boardFocus, setBoardFocus] = useState('')
-    const [playerFocus, setPlayerFocus] = useState({})
-    const [teamFocus, setTeamFocus] = useState('')
+    const [boardFocus, setBoardFocus] = useState({context: "summary"})
     const [lastSort, setLastSort] = useState('')
     const [currentPick, setCurrentPick] = useState(0)
     const [teamStatus, setTeamStatus] = useState([])
     const [loading, setLoading] = useState(true)
     const draftSocket = useRef(null)
-    
+    const User = useContext(UserContext)
+    const Notify = useContext(NotifyContext)
+
+    //To start, we want to fetch our draft history and draft class.  While these could be gathered from
+    //our initial websocket connection or as a single request, I can see a scenario where we want to have 
+    //a draft class preview before a draft, as well as an accessible draft history after the draft.     
+
+    function fetchDraftHistory() {
+        fetch("/league/draft/" + props.league.id, {})
+        .then(response => response.json())
+        .then(data => {
+            let history = []
+            data.map(pick => history.push(pick))
+            setDraftHistory(history)
+        })
+    }
+
+    function fetchDraftPool() {
+        fetch("/draftpool", {})
+        .then(response => response.json())
+        .then(data => {
+            let draftClass = []
+            let headers = []    
+            data.map((player, index) => {
+                draftClass.push(player)
+                if (index === 0) {
+                    Object.keys(player.fields).map((header) => {
+                        //We store our headers as their verbose names, but it would be useful to carry an 
+                        //abbreviation along with the full name.  Our database structure is a little different
+                        //from our python implementation (mostly trying to find a sweet spot on how verbose to 
+                        //be in the database + the different rules for marshalling objects into json).
+                        let abbreviation = ""
+                        let verbose = ""
+                        let indices = []
+                        for (let i = 0; i < header.length; i++) {
+                            if (header.charAt(i) === header.charAt(i).toUpperCase()) {
+                                abbreviation.concat(header.charAt(i))
+                                //We'll save indices for capital letters beyond the first
+                                if (i != 0) {
+                                    indices.push(i)
+                                }
+                            }
+                        }
+                        //split on our capital letter indices, adding a space before them to make our verbose strings
+                        //more readable. start is the first index, after we concat that we set start to the new index, and
+                        //offset by the number of spaces we have added
+                        let start = 0
+                        indices.map((cap, i) => {
+                            verbose.concat(header.slice(start+i, cap), " ")
+                            start = cap
+                        })
+                        headers.push({verbose: verbose, abbreviation: abbreviation})
+                        }
+                    )
+                }
+            })
+            setStatHeaders(headers)
+
+            // //For a final touch, we need to remove any players already selected.  We already have a list in props.history, so simply run through those
+            // //players and remove them from draftClass
+            // props.history.map((draftedPlayer) => {
+            //     let index = draftClass.findIndex(player => player.fields['name_code_FB'] === draftedPlayer.fields['name_code_FB'])
+            //     draftClass.splice(index, 1)
+            // })
+            setDraftPool(draftClass)
+        })
+    }
+
     //initializes a team status list
     function prepareStatus() {
         let tempStatus = []
@@ -22,19 +87,32 @@ function Draft(props) {
 
     //This useEffect populates some of our states once on load
     useEffect(() => {
+        fetchDraftHistory()
+        fetchDraftPool()
+        if (history.length > 0) {
+            //remove drafted players from draft pool
+            let pool = [...draftPool]
+            draftHistory.map(pick => {
+                let index =  pool.findIndex(player => player.ID === pick.Player)
+                pool.splice(index, 1)
+            })
+            setDraftPool(pool)
+        }
         prepareStatus()
         //So we're going to use a websocket to update the draft as it progresses.
         draftSocket.current = new WebSocket(
             'ws://'
             + window.location.host
             + '/ws/draft/'
-            + props.leagueID
+            + props.league.id
             + ''
         )
         setLoading(false)
     }, [])
 
-    //This useEffect sets control for our draft socket
+    //This useEffect sets control for our draft socket.  We want it to update not only when the 'draftsocket'
+    //transitions from null, but we want to update this anytime we have a state change on any states we access
+    //within this controller.  
     useEffect(() => {
         if (draftSocket !== null) {
 
@@ -43,7 +121,7 @@ function Draft(props) {
             }
             draftSocket.current.onopen = (e) => {
                 //When we join, all users in the room receive a status message, while the joiner gets
-                //a user list.  
+                //a user list.  So we probably don't need this...  
             }
             draftSocket.current.onmessage = (e) => {
                 let data = JSON.parse(e)
@@ -85,10 +163,68 @@ function Draft(props) {
         }
     }, [draftSocket])
 
-    function submit(e) {
+    function submitChat(e) {
         e.preventDefault()
         draftSocket.current.send(JSON.stringify({"Kind":"message", "Payload": msg.value}))
     }
+
+    function submitPick(playerID) {
+        e.preventDefault()
+        let team = 0
+        for (let i = 0; i < props.teams.length; i++) {
+            if (props.teams[i].Manager.ID === User.id) {
+                team = teams[i].ID
+            }
+        }
+        draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team, "League": props.league.id}}))
+    }
+
+    function shiftFocus(focusable) {
+        e.preventDefault()
+        switch (focusable.context) {
+            case "player":
+                setBoardFocus({context:"player", id:focusable.id})
+                break;
+            case "team":
+                setBoardFocus({context:"team", id:focusable.id})
+                break;
+            default:
+                setBoardFocus({context:"summary"})
+                break;
+        }
+    }
+
+    function sortDraftPool(header) {
+        let sortedPool = [...draftPool]
+        for (const [key, value] of Object.entries(draftPool[0].fields)) {
+            if (key === header) {
+                let chars = String(value).toLowerCase().split('')
+                if (ALPHA.includes(chars[0])) {
+                    // Alpha sort
+                    if (lastSort !== header) {
+                        sortedPool.sort((a,b) => a.fields[key].toString().localeCompare(b.fields[key].toString()))
+                        setLastSort(header)
+                    } else {
+                        sortedPool.sort((a,b) => b.fields[key].toString().localeCompare(a.fields[key].toString()))
+                        setLastSort('')
+                    }
+                    setDraftPool(sortedPool)
+                } else {
+                    // Number sort
+                    if (lastSort !== header) {
+                        sortedPool.sort((a,b) => b.fields[key] - a.fields[key])
+                        setLastSort(header)
+                    } else {
+                        sortedPool.sort((a,b) => a.fields[key] - b.fields[key])
+                        setLastSort('')
+                    }
+                    setDraftPool(sortedPool)
+                }
+                break
+            }
+        }    
+    }
+
 
     if (loading) {
         return(<div>loading...</div>)
@@ -99,7 +235,7 @@ function Draft(props) {
         <div id="fakechat">
 
         </div>
-        <form onSubmit={submit}>
+        <form onSubmit={submitChat}>
             <input id="msg" type="text" />
             <button type="submit">chat</button>
         </form>
