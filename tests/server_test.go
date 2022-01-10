@@ -113,7 +113,7 @@ func TestAnonIndex(t *testing.T) {
 func TestRegister(t *testing.T) {
 	//Larry and better larry
 	larry := `{"username":"larry","password":"test","email":"larry@mail.com"}`
-	larryV2 := `{"id":1,"name":"larry","email":"larry@mail.com"}`
+	larryV2 := `{"ID":1,"name":"larry","email":"larry@mail.com"}`
 	//Larry's client
 	a, err := getCSRF(r)
 	if err != nil {
@@ -185,7 +185,7 @@ func TestRegisterBadEmail(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	larry := `{"username":"larry","password":"test"}`
-	larryV2 := `{"id":1,"name":"larry","email":"larry@mail.com"}`
+	larryV2 := `{"ID":1,"name":"larry","email":"larry@mail.com"}`
 	a, err := getCSRF(r)
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +284,7 @@ func TestInviteUnregistered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"id":0,"name":"Unregistered","email":"barry@mail.com"}`
+	want := `{"ID":0,"name":"Unregistered","email":"barry@mail.com"}`
 	if w.Body.String() != want {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -292,11 +292,11 @@ func TestInviteUnregistered(t *testing.T) {
 }
 
 //NOTE: Bad attempts to register trigger auto-increment.  I guess this is a feature, so an explanation in case someone was wondering why barryV2 has an
-//id of 5.
+//ID of 5.
 func TestRegisterInvited(t *testing.T) {
 	//barry and better barry
 	barry := `{"username":"barry","password":"test","email":"barry@mail.com"}`
-	barryV2 := `{"id":5,"name":"barry","email":"barry@mail.com"}`
+	barryV2 := `{"ID":5,"name":"barry","email":"barry@mail.com"}`
 	//barry's client
 	a, err := getCSRF(r)
 	if err != nil {
@@ -368,7 +368,7 @@ func TestJoinLeague(t *testing.T) {
 func TestInviteRegistered(t *testing.T) {
 	//marry and better marry
 	marry := `{"username":"marry","password":"test","email":"marry@mail.com"}`
-	marryV2 := `{"id":6,"name":"marry","email":"marry@mail.com"}`
+	marryV2 := `{"ID":6,"name":"marry","email":"marry@mail.com"}`
 	//marry's client
 	a, err := getCSRF(r)
 	if err != nil {
@@ -391,7 +391,7 @@ func TestInviteRegistered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"id":6,"name":"marry","email":"marry@mail.com"}`
+	want := `{"ID":6,"name":"marry","email":"marry@mail.com"}`
 	if w.Body.String() != want {
 		t.Errorf("want %v got %v", want, w.Body.String())
 	}
@@ -421,7 +421,7 @@ func TestLeagueHome(t *testing.T) {
 	//Beyond how unwieldy this gets, we really want to track changes to this page as we have users join.
 	//There's probably a better way that's eluding me at the moment, but for some larger tests (like a max size league)
 	//We're going to want to compare views in a programmatic way.
-	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"id":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"id":1,"name":"larry","email":"larry@mail.com"}},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"id":5,"name":"barry","email":"barry@mail.com"}},{"ID":3,"Name":"Marry Christmas","Manager":{"id":6,"name":"marry","email":"marry@mail.com"}}]}`
+	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"}},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"ID":5,"name":"barry","email":"barry@mail.com"}},{"ID":3,"Name":"Marry Christmas","Manager":{"ID":6,"name":"marry","email":"marry@mail.com"}}]}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
