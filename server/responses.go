@@ -30,20 +30,20 @@ type LogAccount struct {
 //We'll be storing this info in the session to access the user's information.  Our int ID will allow us to find all the tables associated with the
 //user, and we'll have the name string handy to publically identify the account.
 type AccountInfo struct {
-	ID    int64  `json:"id" form:"id"`
+	ID    int64  `json:"ID" form:"ID"`
 	Name  string `json:"name" form:"name"`
 	Email string `json:"email" form:"email"`
 }
 
 func index(c *gin.Context) {
-	//Whenever anyone hits the index, we want to verify they have a user id
+	//Whenever anyone hits the index, we want to verify they have a user ID
 	session := sessions.Default(c)
 
 	var user AccountInfo
 	if session.Get("user") != nil {
 		user.ID = session.Get("user").(int64)
 		db := store.GetDB()
-		row := db.QueryRow("SELECT email, name FROM user WHERE id = ?", user.ID)
+		row := db.QueryRow("SELECT email, name FROM user WHERE ID = ?", user.ID)
 		if err := row.Scan(&user.Email, &user.Name); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
@@ -67,7 +67,7 @@ func login(c *gin.Context) {
 	var storedHash []byte
 	var userID int64
 	var email string
-	if err := db.QueryRow("SELECT id, passhash, email FROM user WHERE name = ?", a.Name).Scan(&userID, &storedHash, &email); err != nil {
+	if err := db.QueryRow("SELECT ID, passhash, email FROM user WHERE name = ?", a.Name).Scan(&userID, &storedHash, &email); err != nil {
 		//Name doesn't exist or other catastrophic error
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -162,7 +162,7 @@ func register(c *gin.Context) {
 	userInfo.ID, err = newAccount.LastInsertId()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("bad id")
+		fmt.Println("bad ID")
 		return
 	}
 	userInfo.Name = validName
@@ -289,7 +289,7 @@ func register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
-	//All that done, we want to pass the user id back as a json response
+	//All that done, we want to pass the user ID back as a json response
 	c.JSON(http.StatusOK, userInfo)
 }
 
@@ -332,37 +332,37 @@ func createLeague(c *gin.Context) {
 	leagueID, err := newLeague.LastInsertId()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("bad id")
+		fmt.Println("bad ID")
 		return
 	}
-	//With our id, we can populate the league's position amongst the other settings tables.  While we
+	//With our ID, we can populate the league's position amongst the other settings tables.  While we
 	//could have our users define the league better before creation, I'm split on whether it isn't just better
 	//to expose all the customization options after the league has been created.  To be continued...
-	_, err = tx.Exec("INSERT INTO draft_settings (id) VALUES (?)", leagueID)
+	_, err = tx.Exec("INSERT INTO draft_settings (ID) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO positional_settings (id) VALUES (?)", leagueID)
+	_, err = tx.Exec("INSERT INTO positional_settings (ID) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO scoring_settings_offense (id) VALUES (?)", leagueID)
+	_, err = tx.Exec("INSERT INTO scoring_settings_offense (ID) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO scoring_settings_defense (id) VALUES (?)", leagueID)
+	_, err = tx.Exec("INSERT INTO scoring_settings_defense (ID) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO scoring_settings_special (id) VALUES (?)", leagueID)
+	_, err = tx.Exec("INSERT INTO scoring_settings_special (ID) VALUES (?)", leagueID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -376,7 +376,7 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + draftName + " (id INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`id`))")
+	_, err = tx.Exec("CREATE TABLE " + draftName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`ID`))")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -404,7 +404,7 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + transactionName + " (id INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL, team INT NOT NULL, source INT NOT NULL, associated INT DEFAULT 0, initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, primary key(`id`))")
+	_, err = tx.Exec("CREATE TABLE " + transactionName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL, team INT NOT NULL, source INT NOT NULL, associated INT DEFAULT 0, initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, primary key(`ID`))")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -418,7 +418,7 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (id INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, primary key(`id`))")
+	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, primary key(`ID`))")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -462,7 +462,7 @@ func createLeague(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"leagueID": leagueID})
 }
 
-//We'll make a request to /user/leagues/:id, and return any leagues on the leagues_#userID table.  We should also grab
+//We'll make a request to /user/leagues/:ID, and return any leagues on the leagues_#userID table.  We should also grab
 //The associated name each league returned.  We should also return league invites to users with the same structure.
 func getLeagues(c *gin.Context) {
 	session := sessions.Default(c)
@@ -477,49 +477,49 @@ func getLeagues(c *gin.Context) {
 	user := session.Get("user").(int64)
 
 	userLeaguesTable := "leagues_" + strconv.FormatInt(user, 10)
-	rows, err := db.Query("SELECT league.id, league.name FROM " +
+	rows, err := db.Query("SELECT league.ID, league.name FROM " +
 		userLeaguesTable +
-		" AS lt LEFT JOIN league ON lt.league=league.id")
+		" AS lt LEFT JOIN league ON lt.league=league.ID")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var id int64
+		var ID int64
 		var name string
 		//Cool, we're bringing back some rows
-		if err = rows.Scan(&id, &name); err != nil {
+		if err = rows.Scan(&ID, &name); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
 		}
-		leagues = append(leagues, LeagueInfo{ID: id, Name: name})
+		leagues = append(leagues, LeagueInfo{ID: ID, Name: name})
 	}
 
 	//Do the exact same thing, but with user invites table.
 	userInvitesTable := "invites_" + strconv.FormatInt(user, 10)
-	rows, err = db.Query("SELECT id, name FROM " +
+	rows, err = db.Query("SELECT ID, name FROM " +
 		userInvitesTable +
-		" AS lt LEFT JOIN league ON lt.league=league.id")
+		" AS lt LEFT JOIN league ON lt.league=league.ID")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var id int64
+		var ID int64
 		var name string
-		if err = rows.Scan(&id, &name); err != nil {
+		if err = rows.Scan(&ID, &name); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
 		}
-		invites = append(invites, LeagueInfo{ID: id, Name: name})
+		invites = append(invites, LeagueInfo{ID: ID, Name: name})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"leagues": leagues, "invites": invites})
 }
 
-//we'll take the id of the league and the user's credentials, ensure they're authorized to view, and then load the basic league
+//we'll take the ID of the league and the user's credentials, ensure they're authorized to view, and then load the basic league
 //data that will determine what lower components get rendered.
 func LeagueHome(c *gin.Context) {
 	session := sessions.Default(c)
@@ -536,7 +536,7 @@ func LeagueHome(c *gin.Context) {
 	var err error
 	user := session.Get("user").(int64)
 
-	f.ID, err = strconv.ParseInt(c.Param("id"), 10, 64)
+	f.ID, err = strconv.ParseInt(c.Param("ID"), 10, 64)
 	//check if number
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
@@ -545,8 +545,8 @@ func LeagueHome(c *gin.Context) {
 
 	//So let's start with some obvious stuff, we'll return
 	row := db.QueryRow(`SELECT league.name, league.state, league.maxOwner, league.kind,
-		user.id, user.name, user.email FROM league JOIN user ON league.commissioner=user.id 
-		WHERE league.id = ?`, c.Param("id"))
+		user.ID, user.name, user.email FROM league JOIN user ON league.commissioner=user.ID 
+		WHERE league.ID = ?`, c.Param("ID"))
 	if err := row.Scan(&f.Name, &f.State, &f.MaxOwner, &f.Kind, &f.Commissioner.ID, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -561,9 +561,9 @@ func LeagueHome(c *gin.Context) {
 		Manager AccountInfo
 	}
 	var teams []TeamInfo
-	rows, err := db.Query("SELECT t.id, t.name, user.id, user.name, user.email FROM teams_" +
+	rows, err := db.Query("SELECT t.ID, t.name, user.ID, user.name, user.email FROM teams_" +
 		strconv.FormatInt(f.ID, 10) +
-		" AS t JOIN user ON t.manager=user.id")
+		" AS t JOIN user ON t.manager=user.ID")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -591,9 +591,9 @@ func LeagueHome(c *gin.Context) {
 	//Get Invites (only if league is in INIT state)
 	if f.State == "INIT" {
 		var invites []AccountInfo
-		rows, err = db.Query("SELECT user.id, user.name, user.email FROM league_" +
+		rows, err = db.Query("SELECT user.ID, user.name, user.email FROM league_" +
 			strconv.FormatInt(f.ID, 10) +
-			"_invites AS i JOIN user ON i.user=user.id")
+			"_invites AS i JOIN user ON i.user=user.ID")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
@@ -651,7 +651,7 @@ func InviteUser(c *gin.Context) {
 	//Check that invite issuer is commissioner of the league
 	user := session.Get("user").(int64)
 	var commish int64
-	row := db.QueryRow("SELECT commissioner FROM league WHERE id=?", v.League)
+	row := db.QueryRow("SELECT commissioner FROM league WHERE ID=?", v.League)
 	if err := row.Scan(&commish); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -684,7 +684,7 @@ func InviteUser(c *gin.Context) {
 	//Email is legit, we can now search our user database for a user associated with this email.
 	var userID int64
 	var username string
-	row = tx.QueryRow("SELECT id, name FROM user WHERE email=?", v.Invitee)
+	row = tx.QueryRow("SELECT ID, name FROM user WHERE email=?", v.Invitee)
 	//I really don't like putting functionality in errors, but here it'll save us a query.
 	if err := row.Scan(&userID, &username); err != nil {
 
@@ -797,7 +797,7 @@ func joinLeague(c *gin.Context) {
 
 	//Check leagues for maxOwner
 	var maxOwners int64
-	row := tx.QueryRow("SELECT maxOwner FROM league WHERE id=?", t.League)
+	row := tx.QueryRow("SELECT maxOwner FROM league WHERE ID=?", t.League)
 	if err := row.Scan(&maxOwners); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -856,7 +856,7 @@ func joinLeague(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 	}
 
-	//With all that done, we can return a little thumbs up, and the component will update the league id.
+	//With all that done, we can return a little thumbs up, and the component will update the league ID.
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -888,7 +888,7 @@ func leagueSettings(c *gin.Context) {
 	//A little verification that we're getting the request from the commissioner
 	var commish int64
 	user := session.Get("user").(int64)
-	row := tx.QueryRow("SELECT commissioner FROM league WHERE id=?", s.ID)
+	row := tx.QueryRow("SELECT commissioner FROM league WHERE ID=?", s.ID)
 	if err := row.Scan(&commish); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -911,7 +911,7 @@ func leagueSettings(c *gin.Context) {
 	}
 
 	//With that done, we can change the league values.
-	_, err = tx.Exec("UPDATE league SET name=?, maxOwner=?, kind=? WHERE id=?", s.Name, s.MaxOwner, s.Kind, s.ID)
+	_, err = tx.Exec("UPDATE league SET name=?, maxOwner=?, kind=? WHERE ID=?", s.Name, s.MaxOwner, s.Kind, s.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -939,7 +939,7 @@ func lockLeague(c *gin.Context) {
 	}
 
 	//With only a single command, I think we're fine to simply run as is instead of throwing it into a transaction
-	_, err := db.Exec("UPDATE league SET state='PREDRAFT' WHERE id=?", b.ID)
+	_, err := db.Exec("UPDATE league SET state='PREDRAFT' WHERE ID=?", b.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -1107,38 +1107,38 @@ type FullDraftSettings struct {
 func getDraftSettings(c *gin.Context) {
 	db := store.GetDB()
 	var f FullDraftSettings
-	leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
 	//get those sweet draft settings.
-	row := db.QueryRow("SELECT * FROM draft_settings WHERE id=?", leagueId)
+	row := db.QueryRow("SELECT * FROM draft_settings WHERE ID=?", leagueId)
 	if err = row.Scan(&f.D.ID, &f.D.Kind, &f.D.DraftOrder, &f.D.Time, &f.D.DraftClock, &f.D.Rounds); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM positional_settings WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM positional_settings WHERE ID=?", leagueId)
 	if err = f.P.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM scoring_settings_offense WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM scoring_settings_offense WHERE ID=?", leagueId)
 	if err = f.S.O.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE ID=?", leagueId)
 	if err = f.S.D.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE ID=?", leagueId)
 	if err = f.S.S.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -1166,7 +1166,7 @@ func setDraftSettings(c *gin.Context) {
 	//Set those positions
 	_, err = tx.Exec(`UPDATE positional_settings SET 
 	kind=?, qb=?, rb=?, wr=?, te=?, flex=?, bench=?, superflex=?, def=?, k=? 
-	WHERE id=?`,
+	WHERE ID=?`,
 		f.P.Kind, f.P.QB, f.P.RB, f.P.WR, f.P.TE, f.P.Flex, f.P.Bench, f.P.Superflex, f.P.Def, f.P.K,
 		f.P.ID)
 
@@ -1183,7 +1183,7 @@ func setDraftSettings(c *gin.Context) {
 		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
 		rush_att=?, rush_yard=?, rush_td=?, rec_tar=?, rec=?, rec_yard=?, rec_td=?,
 		fum=?, fum_lost=?, misc_td=?, two_point=?, two_point_pass=? 
-		WHERE id=?`,
+		WHERE ID=?`,
 		f.S.O.PassAttempt, f.S.O.PassCompletion, f.S.O.PassYard, f.S.O.PassTouchdown, f.S.O.PassInterception, f.S.O.PassSack,
 		f.S.O.RushAttempt, f.S.O.RushYard, f.S.O.RushTouchdown, f.S.O.ReceivingTarget, f.S.O.Reception, f.S.O.ReceivingYard, f.S.O.ReceivingTouchdown,
 		f.S.O.Fumble, f.S.O.FumbleLost, f.S.O.MiscTouchdown, f.S.O.TwoPointConversion, f.S.O.TwoPointPass,
@@ -1197,7 +1197,7 @@ func setDraftSettings(c *gin.Context) {
 		touchdown=?, sack=?, interception=?, safety=?, shutout=?,
 		points_6=?, points_13=?, points_20=?, points_27=?, points_34=?, points_35=?,
 		yardBonus=?, yards=?
-		Where id=?`,
+		Where ID=?`,
 		f.S.D.Touchdown, f.S.D.Sack, f.S.D.Interception, f.S.D.Safety, f.S.D.Shutout,
 		f.S.D.Points6, f.S.D.Points13, f.S.D.Points20, f.S.D.Points27, f.S.D.Points34, f.S.D.Points35,
 		f.S.D.YardBonus, f.S.D.Yards,
@@ -1209,7 +1209,7 @@ func setDraftSettings(c *gin.Context) {
 
 	_, err = tx.Exec(`UPDATE scoring_settings_special SET
 	fg_29=?, fg_39=?, fg_49=?, fg_50=?, extra_point=?
-	WHERE id=?`,
+	WHERE ID=?`,
 		f.S.S.Fg29, f.S.S.Fg39, f.S.S.Fg49, f.S.S.Fg50, f.S.S.ExtraPoint,
 		f.S.S.ID)
 	if err != nil {
@@ -1225,7 +1225,7 @@ func setDraftSettings(c *gin.Context) {
 	}
 	_, err = tx.Exec(`UPDATE draft_settings SET 
 		kind=?, draftOrder=?, time=?, draftClock=?, rounds=? 
-		WHERE id=?`,
+		WHERE ID=?`,
 		f.D.Kind, f.D.DraftOrder, f.D.Time, f.D.DraftClock, rounds,
 		f.D.ID)
 	if err != nil {
@@ -1245,25 +1245,25 @@ func getScoringSettings(c *gin.Context) {
 	db := store.GetDB()
 	var t ScoringSettingsTotal
 
-	leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row := db.QueryRow("SELECT * FROM scoring_settings_offense WHERE id=?", leagueId)
+	row := db.QueryRow("SELECT * FROM scoring_settings_offense WHERE ID=?", leagueId)
 	if err = t.O.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE ID=?", leagueId)
 	if err = t.D.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE id=?", leagueId)
+	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE ID=?", leagueId)
 	if err = t.S.ScanRow(row); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -1288,7 +1288,7 @@ func startDraft(c *gin.Context) {
 	}
 
 	//With only a single command, I think we're fine to simply run as is instead of throwing it into a transaction
-	_, err := db.Exec("UPDATE league SET state='DRAFT' WHERE id=?", b.ID)
+	_, err := db.Exec("UPDATE league SET state='DRAFT' WHERE ID=?", b.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -1325,13 +1325,13 @@ type draftSlot struct {
 
 func draftHistory(c *gin.Context) {
 	db := store.GetDB()
-	// leagueId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	// leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	// if err != nil {
 	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 	// 	return
 	// }
 	var history []draftSlot
-	rows, err := db.Query("SELECT * FROM draft_" + c.Param("id"))
+	rows, err := db.Query("SELECT * FROM draft_" + c.Param("ID"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return

@@ -5,10 +5,10 @@
 
 DROP TABLE IF EXISTS user;
 CREATE TABLE user (
-    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL UNIQUE,
     passhash VARCHAR(128) NOT NULL,
     email VARCHAR(256) NOT NULL UNIQUE,
-    primary key (`id`)
+    primary key (`ID`)
 )
 

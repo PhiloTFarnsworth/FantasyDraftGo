@@ -39,7 +39,7 @@ func NewRouter() *gin.Engine {
 	r.Static("/static", os.Getenv("FSGOPATH")+"static")
 
 	//TODO: Refactor these.  names could be better for routes, probably should group everything
-	//outside of index as needing authorization (a middleware that checks for session id?  is that built in?)
+	//outside of index as needing authorization (a middleware that checks for session ID?  is that built in?)
 	r.GET("/", index)
 	r.POST("register", register)
 	r.POST("login", login)
@@ -47,20 +47,20 @@ func NewRouter() *gin.Engine {
 	r.POST("createleague", createLeague)
 	r.POST("invite", InviteUser)
 	r.GET("leagues", getLeagues)
-	r.GET("/league/home/:id", LeagueHome)
+	r.GET("/league/home/:ID", LeagueHome)
 	r.POST("joinleague", joinLeague)
 	r.POST("leaguesettings", leagueSettings)
 	r.POST("lockleague", lockLeague)
-	r.GET("/league/settings/getdraft/:id", getDraftSettings)
-	r.POST("/league/settings/setdraft/:id", setDraftSettings)
-	r.GET("/league/settings/getscor/:id", getScoringSettings)
-	//r.POST("/league/settings/setscor/:id", setScoringSettings)
+	r.GET("/league/settings/getdraft/:ID", getDraftSettings)
+	r.POST("/league/settings/setdraft/:ID", setDraftSettings)
+	r.GET("/league/settings/getscor/:ID", getScoringSettings)
+	//r.POST("/league/settings/setscor/:ID", setScoringSettings)
 	r.POST("startdraft", startDraft)
 	r.GET("draftpool", DraftPool)
-	r.GET("/league/draft/:id", draftHistory)
+	r.GET("/league/draft/:ID", draftHistory)
 
 	//Websocket
-	r.GET("/ws/draft/:id", func(c *gin.Context) {
+	r.GET("/ws/draft/:ID", func(c *gin.Context) {
 		serveWs(c, h)
 	})
 

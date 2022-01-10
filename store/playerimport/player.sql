@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS player;
 CREATE TABLE player (
-    id INT AUTO_INCREMENT NOT NULL,
+    ID INT AUTO_INCREMENT NOT NULL,
     name VARCHAR(128) NOT NULL,
     pfbr_name VARCHAR(128) NOT NULL,
     team VARCHAR(3) NOT NULL,
@@ -28,5 +28,5 @@ CREATE TABLE player (
     fantasy_points SMALLINT NOT NULL,
     point_per_reception DECIMAL(4,1) NOT NULL,
     value_based SMALLINT NOT NULL,
-    primary key (`id`)
+    primary key (`ID`)
 );

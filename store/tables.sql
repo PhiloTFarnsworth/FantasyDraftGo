@@ -3,22 +3,22 @@
 */
 
 
---Teams will be found in a teams_[league id] table, we want to keep a primary key, a name, a manager foriegn key.  
+--Teams will be found in a teams_[league ID] table, we want to keep a primary key, a name, a manager foriegn key.  
 CREATE TABLE teams_#league_id (
-    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
     manager INT NOT NULL,
-    primary key (`id`)
+    primary key (`ID`)
 )
 
 -- So for every league we need to create a new draft table, which will keep track of our drafted players.  We'll name the table
--- draft_[league id], use the id to keep track of draft position, the player id to keep track of player, and the int of the team
+-- draft_[league ID], use the ID to keep track of draft position, the player ID to keep track of player, and the int of the team
 -- that selected the player.
 CREATE TABLE draft_#league_id (
-    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     player INT NOT NULL UNIQUE,
     team INT NOT NULL,
-    primary key (`id`)
+    primary key (`ID`)
 )
 
 --We'll correllate team and spot on it's own table.  While we could include this on the teams_ table, this is going to be
@@ -43,18 +43,18 @@ CREATE TABLE roster_#league_id (
 -- transactions in case of a trade.  Whichever part of the trade is processed first will have their ID saved for the associated
 -- field of any related trade. 
 CREATE TABLE transactions_#league_id (
-    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     player INT NOT NULL,
     team INT NOT NULL,
     source INT NOT NULL,
     associated INT DEFAULT 0,
     initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    primary key(`id`)
+    primary key(`ID`)
 
 )
 
 --For each user, need to create a seperate table housing their leagues.
-CREATE TABLE leagues_#user id (
+CREATE TABLE leagues_#user ID (
     league INT NOT NULL UNIQUE
 )
 

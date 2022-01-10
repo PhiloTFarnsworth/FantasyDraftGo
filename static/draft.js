@@ -18,7 +18,7 @@ function Draft(props) {
     //a draft class preview before a draft, as well as an accessible draft history after the draft.     
 
     function fetchDraftHistory() {
-        fetch("/league/draft/" + props.league.id, {})
+        fetch("/league/draft/" + props.league.ID, {})
         .then(response => response.json())
         .then(data => {
             let history = []
@@ -67,13 +67,6 @@ function Draft(props) {
                 }
             })
             setStatHeaders(headers)
-
-            // //For a final touch, we need to remove any players already selected.  We already have a list in props.history, so simply run through those
-            // //players and remove them from draftClass
-            // props.history.map((draftedPlayer) => {
-            //     let index = draftClass.findIndex(player => player.fields['name_code_FB'] === draftedPlayer.fields['name_code_FB'])
-            //     draftClass.splice(index, 1)
-            // })
             setDraftPool(draftClass)
         })
     }
@@ -81,7 +74,7 @@ function Draft(props) {
     //initializes a team status list
     function prepareStatus() {
         let tempStatus = []
-        props.teams.map(team => tempStatus.push({id: team.ID, active: false}))
+        props.teams.map(team => tempStatus.push({ID: team.ID, active: false}))
         setTeamStatus(tempStatus)
     }
 
@@ -104,7 +97,7 @@ function Draft(props) {
             'ws://'
             + window.location.host
             + '/ws/draft/'
-            + props.league.id
+            + props.league.ID
             + ''
         )
         setLoading(false)
@@ -131,7 +124,7 @@ function Draft(props) {
                     case "users":
                         let tempStatus = [...teamStatus]
                         tempStatus.map(team => {
-                            if (data.Users.contains(team.id)) {
+                            if (data.Users.contains(team.ID)) {
                                 team.active = true
                             }
                         })
@@ -140,7 +133,7 @@ function Draft(props) {
                     case "status":
                         let tempStatus = [...teamStatus]
                         tempStatus.map(team => {
-                            if (team.id === data.User) {
+                            if (team.ID === data.User) {
                                 team.active = data.Active
                             }
                         })
@@ -172,21 +165,21 @@ function Draft(props) {
         e.preventDefault()
         let team = 0
         for (let i = 0; i < props.teams.length; i++) {
-            if (props.teams[i].Manager.ID === User.id) {
+            if (props.teams[i].Manager.ID === User.ID) {
                 team = teams[i].ID
             }
         }
-        draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team, "League": props.league.id}}))
+        draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team, "League": props.league.ID}}))
     }
 
     function shiftFocus(focusable) {
         e.preventDefault()
         switch (focusable.context) {
             case "player":
-                setBoardFocus({context:"player", id:focusable.id})
+                setBoardFocus({context:"player", ID:focusable.ID})
                 break;
             case "team":
-                setBoardFocus({context:"team", id:focusable.id})
+                setBoardFocus({context:"team", ID:focusable.ID})
                 break;
             default:
                 setBoardFocus({context:"summary"})

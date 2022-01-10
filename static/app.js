@@ -30,7 +30,7 @@ function App() {
 
     useEffect(() => {
         const userObj = {
-            'id': parseInt(document.getElementById("userID").textContent),
+            'ID': parseInt(document.getElementById("userID").textContent),
             'name': document.getElementById("username").textContent,
             'email': document.getElementById("userEmail").textContent
         }
@@ -47,7 +47,7 @@ function App() {
                     <div className="container">
                         <Header />
                         <Notify note={notification} onClick={clearNote} />
-                        {user.id === 0 ? //Guest view or lobby
+                        {user.ID === 0 ? //Guest view or lobby
                             <LoginController onRegister={handleUserChange} /> :
                             <Lobby />}
                     </div>

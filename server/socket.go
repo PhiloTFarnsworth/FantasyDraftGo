@@ -206,7 +206,7 @@ func serveWs(c *gin.Context, h hub) {
 		log.Println(err)
 		return
 	}
-	leagueID := c.Param("id")
+	leagueID := c.Param("ID")
 	var userID int64
 	if err = c.ShouldBindQuery(&userID); err != nil {
 		log.Println(err)

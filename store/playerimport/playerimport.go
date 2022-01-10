@@ -98,11 +98,11 @@ func Import(DBName string) {
 			panic(err)
 		}
 
-		// id, err := result.LastInsertId()
+		// ID, err := result.LastInsertId()
 		// if err != nil {
 		// 	panic(err)
 		// }
-		// fmt.Println(id)
+		// fmt.Println(ID)
 	}
 }
 

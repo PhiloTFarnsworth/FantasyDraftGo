@@ -25,7 +25,7 @@ function LoginForm(props) {
                 console.log('success:', data)
                 // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
                 if (data['ok'] !== false) {
-                    let userObj = { 'id': data.id, 'name': data.name, 'email': data.email }
+                    let userObj = { 'ID': data.ID, 'name': data.name, 'email': data.email }
                     props.onLogin(userObj)
                 } else {
                     Notify(data['error'], 0)
@@ -100,7 +100,7 @@ function RegisterForm(props) {
             .then(response => response.json())
             .then(data => {
                 if (data['ok'] !== false) {
-                    let userObj = { 'id': data.id, 'name': data.name, 'email': data.email }
+                    let userObj = { 'ID': data.ID, 'name': data.name, 'email': data.email }
                     props.onRegister(userObj)
                 } else {
                     console.error(data['error'])

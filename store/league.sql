@@ -14,13 +14,13 @@ and give ourselves a kind which informs the type of competition this league is e
 
 DROP TABLE IF EXISTS league;
 CREATE TABLE league (
-    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
     commissioner INT NOT NULL,
     state ENUM('INIT', 'PREDRAFT', 'DRAFT', 'INPROGRESS', 'COMPLETE') DEFAULT 'INIT',
     maxOwner TINYINT NOT NULL,
     kind ENUM('TRAD', 'TP', 'ALLPLAY', 'PIRATE', 'GUILLOTINE') DEFAULT 'TRAD',
-    primary key (`id`)
+    primary key (`ID`)
 );
 
 /*
@@ -30,7 +30,7 @@ so we'll more effectively resist the temptation to call for this info.
 
 DROP TABLE IF EXISTS draft_settings;
 CREATE TABLE draft_settings (
-    id INT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     kind ENUM('TRAD', 'AUCTION') DEFAULT 'TRAD',
     draftOrder ENUM('SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM') DEFAULT 'SNAKE',
     time DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -51,7 +51,7 @@ a bench spot during a season.
 */
 DROP TABLE IF EXISTS positional_settings;
 CREATE TABLE positional_settings (
-    id TINYINT NOT NULL UNIQUE,
+    ID TINYINT NOT NULL UNIQUE,
     kind ENUM('TRAD', 'IDP', 'CUSTOM') DEFAULT 'TRAD',
     qb TINYINT NOT NULL DEFAULT 1,
     rb TINYINT NOT NULL DEFAULT 2,
@@ -81,7 +81,7 @@ possible
 
 DROP TABLE IF EXISTS scoring_settings_offense;
 CREATE TABLE scoring_settings_offense (
-    id INT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     pass_att DECIMAL(4,2) NOT NULL DEFAULT 0,
     pass_comp DECIMAL(4,2) NOT NULL DEFAULT 0,
     pass_yard DECIMAL(4,2) NOT NULL DEFAULT 0.04,
@@ -113,7 +113,7 @@ you get 3 points for 0 yards, and start going negative when the defense gives up
 
 DROP TABLE IF EXISTS scoring_settings_defense;
 CREATE TABLE scoring_settings_defense (
-    id INT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     touchdown DECIMAL (4,2) NOT NULL DEFAULT 6,
     sack DECIMAL (4,2) NOT NULL DEFAULT 1,
     interception DECIMAL (4,2) NOT NULL DEFAULT 3,
@@ -135,7 +135,7 @@ until IDP is implemented.
 */
 DROP TABLE IF EXISTS scoring_settings_special;
 CREATE TABLE scoring_settings_special (
-    id INT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     fg_29 DECIMAL (4,2) NOT NULL DEFAULT 3,
     fg_39 DECIMAL (4,2) NOT NULL DEFAULT 3,
     fg_49 DECIMAL (4,2) NOT NULL DEFAULT 3,
@@ -156,7 +156,7 @@ CREATE TABLE scoring_settings_special (
 
 /*
 Invites_0 will hold our unregisted league invites.  We'll use 0 as we refer to an
-anonymous user id as zero several times in the front end.  We could got with something
+anonymous user ID as zero several times in the front end.  We could got with something
 like anon invites, but I think this works.  We'll take the email and the league they
 wish to join.  
 */
