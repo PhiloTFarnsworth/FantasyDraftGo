@@ -18,17 +18,18 @@ function Draft(props) {
     //a draft class preview before a draft, as well as an accessible draft history after the draft.     
 
     function fetchDraftHistory() {
-        fetch("/league/draft/" + props.league.ID, {})
+        fetch("/league/draft/" + props.league.ID, { method: "GET" })
         .then(response => response.json())
         .then(data => {
             let history = []
             data.map(pick => history.push(pick))
             setDraftHistory(history)
         })
+        .catch(error => Notify(error, 0))
     }
 
     function fetchDraftPool() {
-        fetch("/draftpool", {})
+        fetch("/draftpool", { method: "GET" })
         .then(response => response.json())
         .then(data => {
             let draftClass = []
@@ -69,6 +70,7 @@ function Draft(props) {
             setStatHeaders(headers)
             setDraftPool(draftClass)
         })
+        .catch(error => Notify(error, 0))
     }
 
     //initializes a team status list
@@ -167,6 +169,7 @@ function Draft(props) {
         for (let i = 0; i < props.teams.length; i++) {
             if (props.teams[i].Manager.ID === User.ID) {
                 team = teams[i].ID
+                break;
             }
         }
         draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team, "League": props.league.ID}}))

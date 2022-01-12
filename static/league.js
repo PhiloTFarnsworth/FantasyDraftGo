@@ -572,3 +572,121 @@ function DraftSettings(props) {
         </div>
     )
 }
+
+//We'll allow commissioners to set their own league draft orders, and otherwise we'll create
+//a random ordering.  We should probably create order on league lock, display and allow editing
+//during the predraft portion.
+function DraftOrder(props) {
+    const [order, setOrder] = useState([])
+    const User = useContext(UserContext)
+    const Notify = useContext(NotifyContext)
+    
+    useEffect(() => {
+        fetch("/league/order/" + props.league.ID, { method: "GET" })
+        .then(response => response.json())
+        .then(data => {
+            //So if we return an empty array, draft order has never been set.
+            if (data.length > 0) {
+                //otherwise, we map out the data to a draft order state.
+                let newOrder = []
+                data.map(o => {
+                    //We return order as a slot and a team id, so we should use the team ID
+                    //to pull the team information.
+                    for (let i = 0; i < props.teams.length; i++) {
+                        if (props.teams[i].ID === o.ID) {
+                            newOrder.push({slot: o.Slot, team: props.teams[i]})
+                            break;
+                        }
+                    }
+                })
+                setOrder(newOrder)
+            }
+        })
+        .catch(error => Notify(error, 0))    
+    }, [])
+
+    //We'll grab the length of props.teams, then randomly toss out numbers until we've assigned each team.
+    function generateRandomOrder(e) {
+        e.preventDefault()
+        let min = 1
+        let max = props.teams.length
+        let slots = []
+        let randOrder = []
+        //There's likely a better way, but we'll assign positions to an array.
+        for (let i = 0; i < max; i++) {
+            //slots aren't zero indexed
+            slots.push(i+1)
+        }
+        //Then, we'll pull indexes at random, splicing them from the slots array into the 'newOrder' array,
+        //reducing the max by 1 until we have all numbers assigned.  
+        while (max > min) {
+            //See math.random in the mdn documentation
+            let rand = math.floor(math.random() * ((max + 1)-min) + min)
+            let s = slots.splice(rand, 1)
+            randOrder.push(s)
+            let max = slots.length
+        }
+        //Finally, with all draft slots distributed, we assign them to team IDs. 
+        let newOrder = []
+        for (i = 0; i < newOrder.length; i++) {
+            newOrder.push({slot: o.Slot, team: props.teams[i]})
+        }
+        //We set our order to the generated order
+        setOrder(newOrder)
+        //Then submit it to the server
+        setOrderServer()
+    }
+
+    function setOrderServer(e) {
+        e.preventDefault()
+        let csrftoken = document.getElementById('CSRFToken').textContent
+        fetch("/league/setorder/" + props.league.ID, {
+            method: "POST", 
+            headers: {
+                'X-CSRF-TOKEN': csrftoken,
+                'Content-Type': 'Application/json'
+            },
+            body: JSON.stringify(order)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok != false) {
+                Notify("Draft Order Set", 1)
+            } else {
+                Notify("Draft Order failure: " + data.error, 0)
+            }})
+        .catch(error => Notify(error, 0))
+    }
+    
+
+    //This solution will not stand.  Clicking a team box and dragging it into a draft slot would be the ideal solution,
+    //But that's probably out of scope.  So need to think of reasonable way to assign draft positions... TODO
+    if (order.length == 0) {
+        return(
+            <div>
+                <h1>Set draft order</h1>
+                <button onClick={generateRandomOrder}>Generate Random Order</button>
+
+                <div>--OR-- *this should collapse or smth*</div>
+                <form onSubmit={setOrderServer}>
+                {props.teams.map(team => {
+                    <div>
+                        <label for={"draftOrder_" + team.ID}>{team.Name}</label>
+                        <input id={"draftOrder_" + team.ID} type="Number" min='1' max={teams.length}></input>
+                    </div>
+                })}
+                <button type="submit">Set Order!</button>
+                </form>
+            </div>
+            
+        )
+    }
+
+    return(
+        <div>
+            <ol>
+                {order.map(o => <li>{o.Slot} - {o.team.name} Manager: {o.team.Manager.Name}</li>)}
+            </ol>
+        </div>
+    )
+}

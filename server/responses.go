@@ -382,6 +382,20 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
+	//Draft order table
+	draftOrderName := "draft_order_" + strconv.FormatInt(leagueID, 10)
+	_, err = tx.Exec("DROP TABLE IF EXISTS " + draftOrderName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	_, err = tx.Exec("CREATE TABLE " + draftOrderName + " (team INT NOT NULL UNIQUE, spot INT NOT NULL UNIQUE)")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
 	//league roster table
 	rosterName := "roster_" + strconv.FormatInt(leagueID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + rosterName)
@@ -1325,11 +1339,12 @@ type draftSlot struct {
 
 func draftHistory(c *gin.Context) {
 	db := store.GetDB()
-	// leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-	// 	return
-	// }
+
+	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
 	var history []draftSlot
 	rows, err := db.Query("SELECT * FROM draft_" + c.Param("ID"))
 	if err != nil {
@@ -1346,4 +1361,72 @@ func draftHistory(c *gin.Context) {
 		history = append(history, d)
 	}
 	c.JSON(http.StatusOK, history)
+}
+
+type order struct {
+	Team int64
+	Slot int64
+}
+
+func draftOrder(c *gin.Context) {
+	db := store.GetDB()
+
+	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	var d []order
+
+	rows, err := db.Query("SELECT * FROM draft_order_" + c.Param("ID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var o order
+		if err = rows.Scan(&o.Team, &o.Slot); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			return
+		}
+		d = append(d, o)
+	}
+	c.JSON(http.StatusOK, d)
+}
+
+func setDraftOrder(c *gin.Context) {
+	db := store.GetDB()
+
+	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
+
+	var d []order
+	if err := c.BindJSON(&d); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad bind", "ok": false})
+		return
+	}
+
+	//This is goofy.
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+		return
+	}
+	defer tx.Rollback()
+	for _, slot := range d {
+		_, err = tx.Exec("INSERT INTO draft_order_"+c.Param("ID")+"(team, spot) VALUES (?,?)", slot.Team, slot.Slot)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bad transaction", "ok": false})
+			return
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		return
+	}
 }
