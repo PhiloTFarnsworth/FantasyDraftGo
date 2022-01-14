@@ -34,10 +34,11 @@ function Draft(props) {
         .then(data => {
             let draftClass = []
             let headers = []    
-            data.map((player, index) => {
-                draftClass.push(player)
-                if (index === 0) {
-                    Object.keys(player.fields).map((header) => {
+            for (let i = 0; i < data.Players.length; i++) {
+                draftClass.push(data.Players[i])
+                if (i === 0) {
+                    let rawHeaders = Object.keys(data.Players[i])
+                    for (let j = 0; j < rawHeaders.length; j++) {
                         //We store our headers as their verbose names, but it would be useful to carry an 
                         //abbreviation along with the full name.  Our database structure is a little different
                         //from our python implementation (mostly trying to find a sweet spot on how verbose to 
@@ -45,28 +46,33 @@ function Draft(props) {
                         let abbreviation = ""
                         let verbose = ""
                         let indices = []
-                        for (let i = 0; i < header.length; i++) {
-                            if (header.charAt(i) === header.charAt(i).toUpperCase()) {
-                                abbreviation.concat(header.charAt(i))
-                                //We'll save indices for capital letters beyond the first
-                                if (i != 0) {
-                                    indices.push(i)
+                        for (let k = 0; k < rawHeaders[j].length; k++) {
+                            //Not a huge fan of this, but it will work for english.  
+                            if (rawHeaders[j].charAt(k) === rawHeaders[j].charAt(k).toUpperCase()) {
+                                abbreviation = abbreviation.concat(rawHeaders[j].charAt(k))    
+                                indices.push(k)
+                            }
+                        }
+
+                        if (indices.length === rawHeaders[j].length) {
+                            //ID is an example, though we won't expose that to users.  
+                            verbose = rawHeaders[j]
+                        } else {
+                            //split on our capital letter indices, adding a space before them to make our verbose strings
+                            //more readable. 
+                            for (let k = 0; k < indices.length; k++) {
+                                if (k + 1 < indices.length ) {
+                                    verbose = verbose.concat(rawHeaders[j].slice(indices[k], indices[k+1]), " ")
+                                } else {
+                                    //slice k to end
+                                    verbose = verbose.concat(rawHeaders[j].slice(indices[k]))
                                 }
                             }
                         }
-                        //split on our capital letter indices, adding a space before them to make our verbose strings
-                        //more readable. start is the first index, after we concat that we set start to the new index, and
-                        //offset by the number of spaces we have added
-                        let start = 0
-                        indices.map((cap, i) => {
-                            verbose.concat(header.slice(start+i, cap), " ")
-                            start = cap
-                        })
                         headers.push({verbose: verbose, abbreviation: abbreviation})
                         }
-                    )
+                    }
                 }
-            })
             setStatHeaders(headers)
             setDraftPool(draftClass)
         })
@@ -84,11 +90,11 @@ function Draft(props) {
     useEffect(() => {
         fetchDraftHistory()
         fetchDraftPool()
-        if (history.length > 0) {
+        if (draftHistory.length > 0) {
             //remove drafted players from draft pool
             let pool = [...draftPool]
             draftHistory.map(pick => {
-                let index =  pool.findIndex(player => player.ID === pick.Player)
+                let index = pool.findIndex(player => player.ID === pick.Player)
                 pool.splice(index, 1)
             })
             setDraftPool(pool)
@@ -119,11 +125,11 @@ function Draft(props) {
                 //a user list.  So we probably don't need this...  
             }
             draftSocket.current.onmessage = (e) => {
-                let data = JSON.parse(e)
+                let data = JSON.parse(e.data)
                 switch (data.Kind) {
                     //"users" is only sent upon joining a room.  it passes a list of user ids that are
                     //currently in a draft instance
-                    case "users":
+                    case "users": {
                         let tempStatus = [...teamStatus]
                         tempStatus.map(team => {
                             if (data.Users.contains(team.ID)) {
@@ -132,7 +138,9 @@ function Draft(props) {
                         })
                         setTeamStatus(tempStatus)
                         break;
+                    }
                     case "status":
+                        {
                         let tempStatus = [...teamStatus]
                         tempStatus.map(team => {
                             if (team.ID === data.User) {
@@ -141,6 +149,7 @@ function Draft(props) {
                         })
                         setTeamStatus(tempStatus)
                         break;
+                    }
                     case "draft":
                         console.log(data)
                         break;

@@ -15,6 +15,10 @@ import (
 
 var db *sql.DB
 
+func importToFSGO() {
+	Import("fsgo")
+}
+
 func Import(DBName string) {
 	// Capture connection properties.
 	cfg := mysql.Config{

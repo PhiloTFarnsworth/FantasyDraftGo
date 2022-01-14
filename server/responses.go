@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
+	"github.com/PhiloTFarnsworth/FantasySportsAF/store/playerimport"
 	"github.com/PhiloTFarnsworth/FantasySportsAF/store/scanners"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,9 @@ type AccountInfo struct {
 func index(c *gin.Context) {
 	//Whenever anyone hits the index, we want to verify they have a user ID
 	session := sessions.Default(c)
+
+	//Whenever I need to nuke the development database, uncomment this
+	playerimport.Import("fsgo")
 
 	var user AccountInfo
 	if session.Get("user") != nil {
@@ -1345,7 +1349,9 @@ func draftHistory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
-	var history []draftSlot
+	//var history []draftSlot is nil when unassigned.  We want an empty array if there's
+	//no history to return
+	var history = make([]draftSlot, 0)
 	rows, err := db.Query("SELECT * FROM draft_" + c.Param("ID"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})

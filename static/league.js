@@ -578,6 +578,7 @@ function DraftSettings(props) {
 //during the predraft portion.
 function DraftOrder(props) {
     const [order, setOrder] = useState([])
+    const [unassigned, setUnassigned] = useState([])
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
     
@@ -594,12 +595,21 @@ function DraftOrder(props) {
                     //to pull the team information.
                     for (let i = 0; i < props.teams.length; i++) {
                         if (props.teams[i].ID === o.ID) {
-                            newOrder.push({slot: o.Slot, team: props.teams[i]})
+                            newOrder.push(props.teams[i])
                             break;
                         }
                     }
                 })
                 setOrder(newOrder)
+            } else {
+                let newUnassigned = []
+                let blankOrder = []
+                for (let i = 0; i < props.teams.length; i++) {
+                    newUnassigned.push(props.teams[i])
+                    blankOrder.push({ID: -1})
+                }
+                setUnassigned(newUnassigned)
+                setOrder(blankOrder)
             }
         })
         .catch(error => Notify(error, 0))    
@@ -626,10 +636,10 @@ function DraftOrder(props) {
             randOrder.push(s)
             let max = slots.length
         }
-        //Finally, with all draft slots distributed, we assign them to team IDs. 
-        let newOrder = []
+        //Finally, with all draft slots distributed, set our new order
+        let newOrder = [...order]
         for (i = 0; i < newOrder.length; i++) {
-            newOrder.push({slot: o.Slot, team: props.teams[i]})
+            newOrder[i] = props.teams[randOrder[i]]
         }
         //We set our order to the generated order
         setOrder(newOrder)
@@ -637,7 +647,7 @@ function DraftOrder(props) {
         setOrderServer()
     }
 
-    function setOrderServer(e) {
+    function setOrderServerside(e) {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
         fetch("/league/setorder/" + props.league.ID, {
@@ -657,25 +667,79 @@ function DraftOrder(props) {
             }})
         .catch(error => Notify(error, 0))
     }
+
+    //What we do here is we remove the team from unassigned, lock the team in the slot and add it to our draft order
+    //list.  
+    function lockSlot(e) {
+        e.preventDefault()
+        //First, we grab the ID of the select that holds the users choice.  the integer after 'draft_order_lock_' contains
+        //is shared with the select field draft_order_, so we can grab the users choice of team.  
+        let chosenID = document.querySelector('#draft_order_' + e.target.id.replace("draft_order_lock_", "")).value
+        let index
+        let choice
+        for (let i = 0; i < unassigned.length; i++) {
+            if (chosenID == unassigned[i].ID) {
+                index = i
+                choice = unassigned[i]
+            }
+        }
+        //Take the chosen team out of unassigned
+        let newUnassigned = [...unassigned]
+        newUnassigned.splice(index, 1)
+        setUnassigned(newUnassigned)
+
+        //Then we simply replace the placeholder {ID: -1} on the order array.
+        let newOrder = [...order]
+        newOrder[i] = choice
+        setOrder(newOrder)
+    }
     
 
-    //This solution will not stand.  Clicking a team box and dragging it into a draft slot would be the ideal solution,
-    //But that's probably out of scope.  So need to think of reasonable way to assign draft positions... TODO
-    if (order.length == 0) {
+    function isOrderSet() {
+        if (order.length != teams.length) {
+            return false
+        }
+        for (let i = 0; i < order.length; i++) {
+            if (order[i].ID === -1) {
+                return false
+            }
+        }
+        return true
+    }
+
+    //Far from ideal, but we'll have the user chose between generating a Random order, or assigning the slots
+    //for each team.  Each unassigned slot will have the pick number followed by a select containing each team
+    //not yet assigned to another slot.  When a user has assigned all teams (by locking their draft position),
+    //the 'set order' submit button will become enabled, allowing the user to submit the order for the server.
+    if (isOrderSet) {
         return(
             <div>
                 <h1>Set draft order</h1>
                 <button onClick={generateRandomOrder}>Generate Random Order</button>
 
                 <div>--OR-- *this should collapse or smth*</div>
-                <form onSubmit={setOrderServer}>
-                {props.teams.map(team => {
+                <div>
+                </div>
+                <form onSubmit={setOrderServerside}>
+                {props.teams.map((team, i) => {
+                    if (unassigned.contains(team)) {
                     <div>
-                        <label for={"draftOrder_" + team.ID}>{team.Name}</label>
-                        <input id={"draftOrder_" + team.ID} type="Number" min='1' max={teams.length}></input>
+                        <label for={"draft_order_" + i}>#{i+1} Pick</label>
+                        <Select id={"draft_order_" + i}>
+                            {unassigned.map(t => <option value={t.ID}>{t.Name} - {t.Manager.Name}</option>)}
+                        </Select>
+                        <button onClick={lockSlot} id={"draft_order_lock_" + i}>Lock Draft Position</button>
                     </div>
+                    } else {
+                        <div>
+                            <p> #{i+1} Pick: {order[i].Name} - {order[i].Manager.Name}</p>
+                        </div>
+                    }
                 })}
-                <button type="submit">Set Order!</button>
+                {unassigned.length > 0 
+                ? <button type="submit" disabled>Set Order!</button>
+                : <button type="submit">Set Order!</button>}
+                
                 </form>
             </div>
             

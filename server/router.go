@@ -16,12 +16,13 @@ func NewRouter() *gin.Engine {
 	store := cookie.NewStore([]byte("secret"))
 
 	//Multi Room example.  'h' will be our main draft hub
-	h := hub{
-		rooms:      map[string]map[*connection]bool{},
-		broadcast:  make(chan message),
-		register:   make(chan subscription),
-		unregister: make(chan subscription),
-	}
+	// h := hub{
+	// 	rooms:      map[string]map[*connection]bool{},
+	// 	broadcast:  make(chan message),
+	// 	register:   make(chan subscription),
+	// 	unregister: make(chan subscription),
+	// }
+	h := newHub()
 	go h.run()
 
 	r.Use(sessions.Sessions("mysession", store))
@@ -63,7 +64,7 @@ func NewRouter() *gin.Engine {
 
 	//Websocket
 	r.GET("/ws/draft/:ID", func(c *gin.Context) {
-		serveWs(c, h)
+		serveWs(c, *h)
 	})
 
 	return r

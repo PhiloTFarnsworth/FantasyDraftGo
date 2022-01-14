@@ -151,16 +151,16 @@ func (s subscription) readPump(h hub) {
 			h.broadcast <- m
 		case "pick":
 			var n struct {
-				player int64
-				pick   int64
-				team   int64
-				league int64
+				Player int64
+				Pick   int64
+				Team   int64
+				League int64
 			}
-			err = json.Unmarshal(decoded.Payload, n)
+			err = json.Unmarshal(decoded.Payload, &n)
 			if err != nil {
 				fmt.Println(err)
 			}
-			p := draftPick{n.player, n.pick, n.team, n.league, s.room}
+			p := draftPick{n.Player, n.Pick, n.Team, n.League, s.room}
 			h.pick <- p
 		}
 	}
