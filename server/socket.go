@@ -59,7 +59,7 @@ type message struct {
 
 type chat struct {
 	Kind    string
-	Payload []byte
+	Payload string
 }
 
 //We could conceivably pass all this information along the message struct (see the python implementation),
@@ -207,8 +207,8 @@ func serveWs(c *gin.Context, h hub) {
 		return
 	}
 	leagueID := c.Param("ID")
-	var userID int64
-	if err = c.ShouldBindQuery(&userID); err != nil {
+	userID, err := strconv.ParseInt(c.Query("userID"), 10, 64)
+	if err != nil {
 		log.Println(err)
 		return
 	}
@@ -287,7 +287,7 @@ func (h *hub) run() {
 				}
 			}
 		case m := <-h.broadcast:
-			p := chat{Kind: "chat", Payload: m.data}
+			p := chat{Kind: "chat", Payload: string(m.data[:])}
 			b, err := json.Marshal(p)
 			if err != nil {
 				fmt.Println(err)

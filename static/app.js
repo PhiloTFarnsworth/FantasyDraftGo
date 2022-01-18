@@ -42,6 +42,7 @@ function App() {
         return <div>Loading...</div>
     } else {
         return (
+            <React.StrictMode>
             <UserContext.Provider value={user}>
                 <NotifyContext.Provider value={notify}>
                     <div className="container">
@@ -53,6 +54,7 @@ function App() {
                     </div>
                 </NotifyContext.Provider>
             </UserContext.Provider>
+            </React.StrictMode>
         )
     }
 }

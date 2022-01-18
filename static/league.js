@@ -27,6 +27,7 @@ function LeagueHome(props) {
     const [teams, setTeams] = useState([])
     const [invites, setInvites] = useState([])
     const [openSpots, setOpenSpots] = useState(0)
+    const [loading, setLoading] = useState(true)
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
 
@@ -35,31 +36,32 @@ function LeagueHome(props) {
     useEffect(() => {
         let url = "/league/home/" + props.ID
         fetch(url, { method: "GET" })
-            .then(response => response.json())
-            .then(data => {
-                if (data.ok == false) {
-                    Notify(data.error, 0)
-                } else {
-                    setCommissioner(data.league.Commissioner)
-                    setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner })
-                    let count = 0
-                    if (data.teams != null) {
-                        setTeams(data.teams)
-                        count += data.teams.length
-                    }
-                    if (data.invites != null) {
-                        setInvites(data.invites)
-                        count += data.invites.length
-                    }
-                    if (count > data.league.MaxOwner) {
-                        setOpenSpots(0)
-
-                    } else {
-                        setOpenSpots(data.league.MaxOwner - count)
-                    }
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok == false) {
+                Notify(data.error, 0)
+            } else {
+                setCommissioner(data.league.Commissioner)
+                setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner })
+                let count = 0
+                if (data.teams != null) {
+                    setTeams(data.teams)
+                    count += data.teams.length
                 }
-            })
-            .catch(error => console.error(error))
+                if (data.invites != null) {
+                    setInvites(data.invites)
+                    count += data.invites.length
+                }
+                if (count > data.league.MaxOwner) {
+                    setOpenSpots(0)
+
+                } else {
+                    setOpenSpots(data.league.MaxOwner - count)
+                }
+                setLoading(false)
+            }
+        })
+        .catch(error => console.error(error))
     }, [])
 
     useEffect(() => {
@@ -135,6 +137,10 @@ function LeagueHome(props) {
                 }
             })
             .catch(error => console.error(error))
+    }
+
+    if (loading) {
+        return <div>loading...</div>
     }
 
     //Since our league state is going to have a fair bit of control over how we render league home, I think we build
