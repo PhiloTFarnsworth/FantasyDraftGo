@@ -166,6 +166,7 @@ function LeagueHome(props) {
                     <p>When satisfied, click start draft button to begin draft</p>
                     <button onClick={startDraft}>Start Draft</button>
                     <DraftSettings league={leagueProps.ID} commissioner={commissioner} />
+                    <DraftOrder league={leagueProps} teams={teams}/>
                 </div>
             )
         case "DRAFT":
@@ -334,7 +335,7 @@ function LeagueSettings(props) {
             <h1>League Settings</h1>
             <form onSubmit={submit}>
                 <input name="leagueName" type="text" value={leagueName} onChange={handleChange}></input>
-                <input name="maxOwner" type="number" max="16" value={maxOwner} onChange={handleChange}></input>
+                <input name="maxOwner" type="number" max="16" min="2" value={maxOwner} onChange={handleChange}></input>
                 <select name="kind" id="league_kind" onChange={handleChange} value={kind}>
                     <option value="TRAD">Traditional</option>
                     <option value="TP">Total Points</option>
@@ -585,6 +586,7 @@ function DraftSettings(props) {
 function DraftOrder(props) {
     const [order, setOrder] = useState([])
     const [unassigned, setUnassigned] = useState([])
+    const [loading, setLoading] = useState(true)
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
     
@@ -593,7 +595,7 @@ function DraftOrder(props) {
         .then(response => response.json())
         .then(data => {
             //So if we return an empty array, draft order has never been set.
-            if (data.length > 0) {
+            if (data !== null) {
                 //otherwise, we map out the data to a draft order state.
                 let newOrder = []
                 data.map(o => {
@@ -617,8 +619,9 @@ function DraftOrder(props) {
                 setUnassigned(newUnassigned)
                 setOrder(blankOrder)
             }
+            setLoading(false)
         })
-        .catch(error => Notify(error, 0))    
+        .catch(error => console.log(error))  
     }, [])
 
     //We'll grab the length of props.teams, then randomly toss out numbers until we've assigned each team.
@@ -630,31 +633,35 @@ function DraftOrder(props) {
         let randOrder = []
         //There's likely a better way, but we'll assign positions to an array.
         for (let i = 0; i < max; i++) {
-            //slots aren't zero indexed
-            slots.push(i+1)
+            slots.push(i)
         }
         //Then, we'll pull indexes at random, splicing them from the slots array into the 'newOrder' array,
         //reducing the max by 1 until we have all numbers assigned.  
-        while (max > min) {
+        while (min <= max) {
             //See math.random in the mdn documentation
-            let rand = math.floor(math.random() * ((max + 1)-min) + min)
+            let rand = Math.floor(Math.random() * ((max+1)-min))
             let s = slots.splice(rand, 1)
             randOrder.push(s)
-            let max = slots.length
+            max = slots.length
         }
         //Finally, with all draft slots distributed, set our new order
         let newOrder = [...order]
-        for (i = 0; i < newOrder.length; i++) {
+        for (let i = 0; i < newOrder.length; i++) {
             newOrder[i] = props.teams[randOrder[i]]
         }
         //We set our order to the generated order
         setOrder(newOrder)
+        //Finally, we take our new order and make it agree with the team/spot layout we have in
+        //the sql.
+        let serverOrder = []
+        for (let i=0; i< newOrder.length; i++) {
+            serverOrder.push({Team: newOrder[i].ID, Slot: i + 1})
+        }
         //Then submit it to the server
-        setOrderServer()
+        setOrderServerside(serverOrder)
     }
 
-    function setOrderServerside(e) {
-        e.preventDefault()
+    function setOrderServerside(newOrder) {
         let csrftoken = document.getElementById('CSRFToken').textContent
         fetch("/league/setorder/" + props.league.ID, {
             method: "POST", 
@@ -662,7 +669,7 @@ function DraftOrder(props) {
                 'X-CSRF-TOKEN': csrftoken,
                 'Content-Type': 'Application/json'
             },
-            body: JSON.stringify(order)
+            body: JSON.stringify(newOrder)
         })
         .then(response => response.json())
         .then(data => {
@@ -671,7 +678,7 @@ function DraftOrder(props) {
             } else {
                 Notify("Draft Order failure: " + data.error, 0)
             }})
-        .catch(error => Notify(error, 0))
+        .catch(error => console.log(error))
     }
 
     //What we do here is we remove the team from unassigned, lock the team in the slot and add it to our draft order
@@ -713,6 +720,10 @@ function DraftOrder(props) {
         return true
     }
 
+    if (loading) {
+        return <div>loading...</div>
+    }
+
     //Far from ideal, but we'll have the user chose between generating a Random order, or assigning the slots
     //for each team.  Each unassigned slot will have the pick number followed by a select containing each team
     //not yet assigned to another slot.  When a user has assigned all teams (by locking their draft position),
@@ -728,17 +739,18 @@ function DraftOrder(props) {
                 </div>
                 <form onSubmit={setOrderServerside}>
                 {props.teams.map((team, i) => {
-                    if (unassigned.contains(team)) {
+                    if (unassigned.some(u => u.ID === team.ID)) {
                     <div>
+                        <p> true</p>
                         <label for={"draft_order_" + i}>#{i+1} Pick</label>
-                        <Select id={"draft_order_" + i}>
+                        <select id={"draft_order_" + i}>
                             {unassigned.map(t => <option value={t.ID}>{t.Name} - {t.Manager.Name}</option>)}
-                        </Select>
+                        </select>
                         <button onClick={lockSlot} id={"draft_order_lock_" + i}>Lock Draft Position</button>
                     </div>
                     } else {
                         <div>
-                            <p> #{i+1} Pick: {order[i].Name} - {order[i].Manager.Name}</p>
+                            <p> #{i+1} Pick: {order[i].Name} - {order[i].Manager.name}</p>
                         </div>
                     }
                 })}

@@ -503,14 +503,37 @@ func TestSetDraftSettings(t *testing.T) {
 	}
 }
 
+func TestGetDraftOrderEmpty(t *testing.T) {
+	a := larryClient
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/order/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := "null"
+	if want != w.Body.String() {
+		t.Errorf("want %v, got %v", want, w.Body.String())
+	}
+}
+
+// func TestSetDraftOrder(t *testing.T) {
+// 	a := larryClient
+// 	w, err := postJSON(a, "/league/setorder/1", `[{"league":1}]`, http.StatusOK)
+// }
+
 func TestStartDraft(t *testing.T) {
 	a := larryClient
 	w, err := postJSON(a, "/startdraft", `{"league":1}`, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Body.String() != `{"state":"DRAFT"}` {
-		t.Errorf(`want {"state": "DRAFT"} got %v`, w.Body.String())
+	if w.Body.String() != `[{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}]` {
+		t.Errorf(`want [{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}] got %v`, w.Body.String())
 	}
 }
 

@@ -224,7 +224,7 @@ function LeagueWizard(props) {
         let csrftoken = document.getElementById('CSRFToken').textContent
         fetch('/createleague', {
             method: 'POST',
-            body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, name: teamName }),
+            body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
             headers: {
                 'X-CSRF-TOKEN': csrftoken,
                 'Content-Type': 'Application/JSON'

@@ -29,7 +29,7 @@ function DraftBoard(props) {
                 drafting={drafting.Team}  
                 shiftFocus={props.shiftFocus}/>
         }
-        if (props.focus === 'team') {
+        if (props.focus.context === 'team') {
             let picks = props.history.filter(pick => pick.Team === props.focus.ID)
             roster = picks.map(pick => pick.Player)
             let index = props.teams.findIndex(team => team.ID === pick.Team)
@@ -134,7 +134,7 @@ function PBio(props) {
     
     const resetFocus = (e) => {
         e.preventDefault()
-        props.shiftFocus({'context': 'summary'})
+        props.shiftFocus({context: 'summary', focusable: null})
     }
 
     const handleSelection = (e) => {
@@ -165,22 +165,28 @@ function PBio(props) {
     ]
 
     let url = 'https://www.pro-football-reference.com/players/' + props.player.PfbrName[0] + '/' + props.player.PfbrName + '.htm'
-    let statList = []
-    Object.keys(props.player).map((statName, index) => {
+    let displayStats = {}
+    Object.entries(props.player).forEach(([key, value]) => {
         switch (props.player.Position) {
             case 'QB':
-                if (QB.includes(statName)) {
-                    statList.push(index)
+                if (QB.includes(key)) {
+                    Object.defineProperty(displayStats, key, {
+                        value: value
+                    })
                 }
                 break
             case 'RB':
-                if (RB.includes(statName)) {
-                    statList.push(index)
+                if (RB.includes(key)) {
+                    Object.defineProperty(displayStats, key, {
+                        value: value
+                    })
                 }
                 break
             default:
-                if (WR.includes(statName)) {
-                    statList.push(index)
+                if (WR.includes(key)) {
+                    Object.defineProperty(displayStats, key, {
+                        value: value
+                    })
                 }
                 break
         }
@@ -210,11 +216,10 @@ function PBio(props) {
                         <td>{props.player.Team}</td>
                     </tr>
                 </thead>
-                <tbody className='text-center'> {Object.values(props.player).map((stat, index) => statList.includes(index) ?
-                        <tr key={index + stat}>
-                            <th>{Object.keys(props.player)[index]}</th><td>{stat}</td><td colSpan='2'></td>
+                <tbody className='text-center'> {Object.entries(displayStats).map(([key, value]) => 
+                        <tr key={key + "_bio"}>
+                            <th>{key}</th><td>{value}</td><td colSpan='2'></td>
                         </tr>
-                        :''
                     )}
                 </tbody>
                 <tfoot>
@@ -225,8 +230,8 @@ function PBio(props) {
                         <td colSpan='4'>
                         <div className='d-grid gap-2'>
                         {props.teamControl === props.drafting ? 
-                        <button className='btn btn-success btn-sm' id={props.pk} onClick={handleSelection}>Draft</button> : 
-                        <button className='btn btn-light btn-sm' id={props.pk} onClick={handleSelection} disabled>Draft</button>}
+                        <button className='btn btn-success btn-sm' id={props.player.ID} onClick={handleSelection}>Draft</button> : 
+                        <button className='btn btn-light btn-sm' id={props.player.ID} onClick={handleSelection} disabled>Draft</button>}
                         </div>
                         </td>
                     </tr>
@@ -241,7 +246,7 @@ function PBio(props) {
 function TeamSummary(props) {
     const resetFocus = (e) => {
         e.preventDefault()
-        props.shiftFocus({'context': 'summary'})
+        props.shiftFocus({context: 'summary', focusable: null})
     }
 
     let qbs = []
@@ -256,22 +261,22 @@ function TeamSummary(props) {
     
     for (let i = 0; i < props.roster.length; i++) {
         if (props.roster[i] !== 'tbd') {
-            switch (props.roster[i].fields.position_POS) {
+            switch (props.roster[i].Position) {
                 case 'QB': 
                     qbs.push(props.roster[i])
-                    qbPoints += props.roster[i].fields.fantasy_points_FP
+                    qbPoints += props.roster[i].FantasyPoints
                     break
                 case 'RB': 
                     rbs.push(props.roster[i])
-                    rbPoints += props.roster[i].fields.fantasy_points_FP
+                    rbPoints += props.roster[i].FantasyPoints
                     break
                 case 'WR': 
                     wrs.push(props.roster[i])
-                    wrPoints += props.roster[i].fields.fantasy_points_FP
+                    wrPoints += props.roster[i].FantasyPoints
                     break
                 case 'TE': 
                     tes.push(props.roster[i])
-                    tePoints += props.roster[i].fields.fantasy_points_FP
+                    tePoints += props.roster[i].FantasyPoints
                     break
             }
         }
@@ -288,8 +293,8 @@ function TeamSummary(props) {
                 </div></td></tr>
                 : ''
                 }
-                <tr><th colSpan='5'>{props.name}</th></tr>
-                <tr><td colSpan='5'>Manager: {props.manager}</td></tr>
+                <tr><th colSpan='5'>{props.team.Name}</th></tr>
+                <tr><td colSpan='5'>Manager: {props.team.Manager.Name}</td></tr>
                 <tr>
                     <td></td><th>QB</th><th>RB</th><th>WR</th><th>TE</th>
                 </tr>
@@ -300,10 +305,10 @@ function TeamSummary(props) {
                 {[...Array(5)].map((_,i) => 
                     <tr key={'roster_row' + (i + 1).toString()}>
                         <th>{i + 1}:</th>
-                        <td key={'QB' + (i + 1).toString()}>{i < qbs.length ? qbs[i].fields.name : ''}</td>
-                        <td key={'RB' + (i + 1).toString()}>{i < rbs.length ? rbs[i].fields.name : ''}</td>
-                        <td key={'WR' + (i + 1).toString()}>{i < wrs.length ? wrs[i].fields.name : ''}</td>
-                        <td key={'TE' + (i + 1).toString()}>{i < tes.length ? tes[i].fields.name : ''}</td>
+                        <td key={'QB' + (i + 1).toString()}>{i < qbs.length ? qbs[i].Name : ''}</td>
+                        <td key={'RB' + (i + 1).toString()}>{i < rbs.length ? rbs[i].Name : ''}</td>
+                        <td key={'WR' + (i + 1).toString()}>{i < wrs.length ? wrs[i].Name : ''}</td>
+                        <td key={'TE' + (i + 1).toString()}>{i < tes.length ? tes[i].Name : ''}</td>
                     </tr>
                 )}
                 </tbody>

@@ -4,7 +4,7 @@
 
 
 --Teams will be found in a teams_[league ID] table, we want to keep a primary key, a name, a manager foriegn key.  
-CREATE TABLE teams_#league_id (
+CREATE TABLE teams_#leagueID (
     ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
     manager INT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE teams_#league_id (
 -- So for every league we need to create a new draft table, which will keep track of our drafted players.  We'll name the table
 -- draft_[league ID], use the ID to keep track of draft position, the player ID to keep track of player, and the int of the team
 -- that selected the player.
-CREATE TABLE draft_#league_id (
+CREATE TABLE draft_#leagueID (
     ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     player INT NOT NULL UNIQUE,
     team INT NOT NULL,
@@ -23,14 +23,14 @@ CREATE TABLE draft_#league_id (
 
 --We'll correllate team and spot on it's own table.  While we could include this on the teams_ table, this is going to be
 --way easier for generating new draft orders (ether set by commish or randomized).
-CREATE TABLE draft_order_#league (
+CREATE TABLE draft_order_#leagueID (
     team INT NOT NULL UNIQUE,
     spot INT NOT NULL UNIQUE
 )
 
 
 --Finally, we have the roster table created for each league.  We'll filter by team ID to place all players on their rosters
-CREATE TABLE roster_#league_id (
+CREATE TABLE roster_#leagueID (
     player INT NOT NULL UNIQUE,
     active BOOL DEFAULT 0,
     team INT NOT NULL
@@ -42,7 +42,7 @@ CREATE TABLE roster_#league_id (
 -- will be player_id to team 0 from the team that dropped them.  We also have an associated INT, which will refer to other 
 -- transactions in case of a trade.  Whichever part of the trade is processed first will have their ID saved for the associated
 -- field of any related trade. 
-CREATE TABLE transactions_#league_id (
+CREATE TABLE transactions_#leagueID (
     ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     player INT NOT NULL,
     team INT NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE transactions_#league_id (
 )
 
 --For each user, need to create a seperate table housing their leagues.
-CREATE TABLE leagues_#user ID (
+CREATE TABLE leagues_#userID (
     league INT NOT NULL UNIQUE
 )
 
