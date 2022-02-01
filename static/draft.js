@@ -26,7 +26,7 @@ function Draft(props) {
         fetch("/league/draft/" + props.league.ID, { method: "GET" })
         .then(response => response.json())
         .then(data => {
-            let history = data.map(p => p)
+            let history = data.map(p => {p})
             setCurrentPick(history.length)
             //We'll pass an empty or incomplete list of picks.  We want to then expand the array
             //to hold all potential picks in the future.
@@ -595,7 +595,8 @@ function PBio(props) {
 
     const handleSelection = (e) => {
         e.preventDefault()
-        props.selectPlayer(e.target.id)
+        let playerID = Number.parseInt(e.target.id, 10)
+        props.selectPlayer(playerID)
     }
 
     const QB = [

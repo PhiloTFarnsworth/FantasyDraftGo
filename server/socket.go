@@ -315,7 +315,7 @@ func (h *hub) run() {
 			}
 
 			draftTable := "draft_" + strconv.FormatInt(p.league, 10)
-			newPick, err := db.Exec("INSERT INTO "+draftTable+" (player, team) VALUES (?,?)", p.player, p.team)
+			newPick, err := db.Exec("INSERT INTO "+draftTable+" (ID, player, team) VALUES (?,?,?)", p.pick, p.player, p.team)
 			if err != nil {
 				fmt.Println(err)
 				tx.Rollback()

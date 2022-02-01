@@ -16,7 +16,7 @@ CREATE TABLE teams_#leagueID (
 -- draft_[league ID], use the ID to keep track of draft position, the player ID to keep track of player, and the int of the team
 -- that selected the player.
 CREATE TABLE draft_#leagueID (
-    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     player INT NOT NULL UNIQUE,
     team INT NOT NULL,
     primary key (`ID`)

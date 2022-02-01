@@ -163,7 +163,7 @@ function LeagueHome(props) {
                     {teams.map(team => <TeamBox key={team.ID + "_team"} team={team} />)}
                     {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={"invite_" + i} invite={invite} /> : "")}
                     {[...Array(openSpots)].map((x, i) => <InviteBox key={"anon_invite_" + i} invite={null} commissioner={commissioner} league={leagueProps.ID} />)}
-                    {openSpots == 0 ? <button onClick={lockLeague}>Lock League</button> : ""}
+                    {openSpots == 0 && User.ID === commissioner.ID ? <button onClick={lockLeague}>Lock League</button> : ""}
                     <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps} />
                 </div>
             )
@@ -172,7 +172,7 @@ function LeagueHome(props) {
                 <div>
                     <h1>Review Settings</h1>
                     <p>When satisfied, click start draft button to begin draft</p>
-                    <button onClick={startDraft}>Start Draft</button>
+                    {User.ID === commissioner.ID?<button onClick={startDraft}>Start Draft</button>:""}
                     <DraftSettings league={leagueProps.ID} commissioner={commissioner} />
                 </div>
             )
@@ -542,20 +542,31 @@ function DraftSettings(props) {
         )
     }
     if (User.ID !== props.commissioner.ID) {
+        let tempSettings = Object.entries(settings)
+        return(
+            <div>
+                {tempSettings.map(([key, value]) => {
+                    <h1>{key}</h1>
+                    
+                })}
+            </div>
+        )
+
+
         return (
             <div>
                 <h1>Draft Settings</h1>
-                {Object.entries(settings.draft).forEach(([key, value]) => {
+                {Object.entries(settings.draft).map(([key, value]) => {
                     key == "ID" ? "" :
                         <div>
                             <h6>{key}:</h6><p>{value}</p>
                         </div>
                 })}
                 <h1>Positional Settings</h1>
-                {Object.entries(settings.positional).forEach(([key, value]) => {
-                    key == "ID" ? "" :
+                {positional.map(p => {
+                    //key == "ID" ? "" :
                         <div>
-                            <h6>{key}:</h6><p>{value}</p>
+                            <h6>{p[0]}:</h6><p>{p[1]}</p>
                         </div>
                 })}
                 <h1>Scoring Settings</h1>
@@ -568,7 +579,7 @@ function DraftSettings(props) {
                     })
                 })
                 }
-            </div>
+            </div> 
         )
     }
 
