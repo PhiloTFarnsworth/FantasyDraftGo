@@ -380,25 +380,25 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + draftName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`ID`))")
+	_, err = tx.Exec("CREATE TABLE " + draftName + " (ID INT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`ID`))")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
 	}
 
-	//Draft order table
-	draftOrderName := "draft_order_" + strconv.FormatInt(leagueID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + draftOrderName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
+	// //Draft order table
+	// draftOrderName := "draft_order_" + strconv.FormatInt(leagueID, 10)
+	// _, err = tx.Exec("DROP TABLE IF EXISTS " + draftOrderName)
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+	// 	return
+	// }
 
-	_, err = tx.Exec("CREATE TABLE " + draftOrderName + " (team INT NOT NULL UNIQUE, spot INT NOT NULL UNIQUE)")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
+	// _, err = tx.Exec("CREATE TABLE " + draftOrderName + " (team INT NOT NULL UNIQUE, spot INT NOT NULL UNIQUE)")
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+	// 	return
+	// }
 
 	//league roster table
 	rosterName := "roster_" + strconv.FormatInt(leagueID, 10)
@@ -436,7 +436,7 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, primary key(`ID`))")
+	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, slot INT NOT NULL DEFAULT 0, primary key(`ID`))")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -577,9 +577,10 @@ func LeagueHome(c *gin.Context) {
 		ID      int64
 		Name    string
 		Manager AccountInfo
+		Slot    int64
 	}
 	var teams []TeamInfo
-	rows, err := db.Query("SELECT t.ID, t.name, user.ID, user.name, user.email FROM teams_" +
+	rows, err := db.Query("SELECT t.ID, t.name, t.slot, user.ID, user.name, user.email FROM teams_" +
 		strconv.FormatInt(f.ID, 10) +
 		" AS t JOIN user ON t.manager=user.ID")
 	if err != nil {
@@ -589,7 +590,7 @@ func LeagueHome(c *gin.Context) {
 
 	for rows.Next() {
 		var t TeamInfo
-		if err := rows.Scan(&t.ID, &t.Name, &t.Manager.ID, &t.Manager.Name, &t.Manager.Email); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Slot, &t.Manager.ID, &t.Manager.Name, &t.Manager.Email); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return
 		}
@@ -1295,67 +1296,41 @@ type order struct {
 	Slot int64
 }
 
-func draftOrder(c *gin.Context) {
-	db := store.GetDB()
+//Stand alone editing for draft Order.  We're going to skip allowing users to define their
+//own order for the time being, but maybe circle back later and add this
+// func setDraftOrder(c *gin.Context) {
+// 	db := store.GetDB()
 
-	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
+// 	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
 
-	var d []order
+// 	var d []order
+// 	if err := c.BindJSON(&d); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
 
-	rows, err := db.Query("SELECT * FROM draft_order_" + c.Param("ID"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var o order
-		if err = rows.Scan(&o.Team, &o.Slot); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-			return
-		}
-		d = append(d, o)
-	}
-	c.JSON(http.StatusOK, d)
-}
-
-func setDraftOrder(c *gin.Context) {
-	db := store.GetDB()
-
-	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	var d []order
-	if err := c.BindJSON(&d); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-	defer tx.Rollback()
-	for _, slot := range d {
-		_, err = tx.Exec("INSERT INTO draft_order_"+c.Param("ID")+" (team, spot) VALUES (?,?)", slot.Team, slot.Slot)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-			return
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		return
-	}
-}
+// 	tx, err := db.Begin()
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+// 	defer tx.Rollback()
+// 	for _, slot := range d {
+// 		_, err = tx.Exec("UPDATE teams_"+c.Param("ID")+" SET slot=? WHERE ID=? ", slot.Slot, slot.Team)
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 			return
+// 		}
+// 	}
+// 	if err = tx.Commit(); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+// 		return
+// 	}
+// }
 
 //While we have a time for the draft to start, I think it's cromulent to actually have the commissioner
 //manually start the draft.  I see the time provided in settings as more of a suggestion, as this allows
@@ -1379,10 +1354,11 @@ func startDraft(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	//We need to check if a draft order has been set.
+	//We need to check if a draft order has been set.  If any teams have a slot set to zero, then
+	//we want to create a random order.
 	var orderCheck int64
 	var d []order
-	row := tx.QueryRow("SELECT COUNT(*) FROM draft_order_" + strconv.FormatInt(b.ID, 10))
+	row := tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(b.ID, 10) + " WHERE slot = 0")
 	if err = row.Scan(&orderCheck); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 		return
@@ -1390,7 +1366,7 @@ func startDraft(c *gin.Context) {
 
 	//Check if order has been set, if not, create random order, otherwise fetch the draft
 	//order
-	if orderCheck < 1 {
+	if orderCheck > 0 {
 		var teamCount int64
 		rand.Seed(time.Now().UnixNano())
 		row = tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(b.ID, 10))
@@ -1428,15 +1404,16 @@ func startDraft(c *gin.Context) {
 
 		//add draft order to db for other clients to read.
 		for _, slot := range d {
-			_, err = tx.Exec("INSERT INTO draft_order_"+strconv.FormatInt(b.ID, 10)+" (team, spot) VALUES (?,?)", slot.Team, slot.Slot)
+			_, err = tx.Exec("UPDATE teams_"+strconv.FormatInt(b.ID, 10)+" SET slot=? WHERE ID=?", slot.Slot, slot.Team)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 				return
 			}
 		}
 	} else {
-		//Fetch from draft_order table
-		rows, err := tx.Query("SELECT * FROM draft_order_" + strconv.FormatInt(b.ID, 10))
+		//Fetch from draft order?  I can't think of the exact edge case where we would need to return this,
+		//but for consistancy we'll return the draft order whether we need to generate it or not.
+		rows, err := tx.Query("SELECT id, slot FROM teams_" + strconv.FormatInt(b.ID, 10))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
 			return

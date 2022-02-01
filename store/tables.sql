@@ -8,6 +8,7 @@ CREATE TABLE teams_#leagueID (
     ID INT AUTO_INCREMENT NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
     manager INT NOT NULL,
+    slot INT NOT NULL DEFAULT 0,
     primary key (`ID`)
 )
 
@@ -20,14 +21,6 @@ CREATE TABLE draft_#leagueID (
     team INT NOT NULL,
     primary key (`ID`)
 )
-
---We'll correllate team and spot on it's own table.  While we could include this on the teams_ table, this is going to be
---way easier for generating new draft orders (ether set by commish or randomized).
-CREATE TABLE draft_order_#leagueID (
-    team INT NOT NULL UNIQUE,
-    spot INT NOT NULL UNIQUE
-)
-
 
 --Finally, we have the roster table created for each league.  We'll filter by team ID to place all players on their rosters
 CREATE TABLE roster_#leagueID (

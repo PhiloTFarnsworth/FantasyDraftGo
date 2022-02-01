@@ -26,11 +26,26 @@ function Draft(props) {
         fetch("/league/draft/" + props.league.ID, { method: "GET" })
         .then(response => response.json())
         .then(data => {
-            let history = []
-            data.map(pick => history.push(pick))
+            let history = data.map(p => p)
+            setCurrentPick(history.length)
+            //We'll pass an empty or incomplete list of picks.  We want to then expand the array
+            //to hold all potential picks in the future.
+            if (history.length != ROUNDS*props.teams.length) {
+                let snakeFirst = [...props.teams].sort((a,b) => a.Slot - b.Slot)
+                let snakeSecond = [...props.teams].sort((a,b) => b.Slot - a.Slot)
+                let draftLength = ROUNDS*props.teams.length
+                for (let i = history.length; i < draftLength; i++) {
+                    let roundPick = i % props.teams.length
+                    if (Math.floor(i/props.teams.length) % 2 === 0) {
+                        history.push({ID: i, Player: null, Team: snakeFirst[roundPick].ID})
+                    } else {
+                        history.push({ID: i, Player: null, Team: snakeSecond[roundPick].ID})
+                    } 
+                }
+            }
             setDraftHistory(history)
         })
-        .catch(error => Notify(error, 0))
+        .catch(error => console.error(error))
     }
 
     function fetchDraftPool() {
@@ -172,15 +187,8 @@ function Draft(props) {
     }
 
     function submitPick(playerID) {
-        e.preventDefault()
-        let team = 0
-        for (let i = 0; i < props.teams.length; i++) {
-            if (props.teams[i].Manager.ID === User.ID) {
-                team = teams[i].ID
-                break;
-            }
-        }
-        draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team, "League": props.league.ID}}))
+        let team = props.teams.find(t => t.Manager.ID === User.ID)
+        draftSocket.current.send(JSON.stringify({"Kind":"pick", "Payload":{"Player": playerID, "Pick":currentPick, "Team":team.ID, "League": props.league.ID}}))
     }
 
     function shiftFocus(focusable) {
@@ -318,7 +326,7 @@ function DraftPool(props) {
 
     const HandleFocus = (e) => {
         e.preventDefault()
-        let chosen = props.players.find(player => player.ID === e.target.parentElement.id)
+        let chosen = props.players.find(player => player.ID == e.target.parentElement.id)
         props.shiftFocus({context: 'player', focusable: chosen})
     }
 
@@ -452,12 +460,14 @@ function DraftPool(props) {
 //The draft board will also have different views based on context.  Selected players will bring up their name, pertinent stats and a draft button. 
 //Selected teams will show their roster so far.  Both views will have a back button to restore the base draft board.
 function DraftBoard(props) {
+    const User = useContext(UserContext)
+
     if (props.currentPick >= ROUNDS * props.teams.length) {
         //Draft over, display teams.
         let teamSummaries = []
         for (let i = 0; i < props.teams.length; i++) {
-            let picks = props.history.filter(pick => pick.Team === props.teams[i].ID)
-            roster = picks.map(pick => pick.Player)
+            let picks = props.history.filter(p => p.Team === props.teams[i].ID)
+            let roster = picks.map(p => p.Player)
             teamSummaries.push(<TeamSummary 
                                 team={props.teams[i]} 
                                 roster={roster} 
@@ -468,19 +478,18 @@ function DraftBoard(props) {
     } else {
         let drafting = props.history[props.currentPick] 
         if (props.focus.context === 'player') {
-            let index = props.players.findIndex(player => player.ID === props.focus.ID)
-            return <PBio player={props.players[index]} 
-                pk={props.focus.ID} 
+            return <PBio player={props.focus.data} 
                 selectPlayer={props.selectPlayer} 
-                drafting={drafting.Team}  
+                drafting={drafting.Team}
+                teamControl={props.teams.find(t => t.Manager.ID === User.ID)}  
                 shiftFocus={props.shiftFocus}/>
         }
         if (props.focus.context === 'team') {
             let picks = props.history.filter(pick => pick.Team === props.focus.ID)
-            roster = picks.map(pick => pick.Player)
-            let index = props.teams.findIndex(team => team.ID === pick.Team)
+            let roster = picks.map(pick => pick.Player)
+            let team = props.teams.find(team => team.ID === drafting.Team)
             return <TeamSummary 
-                    team={props.teams[index]} 
+                    team={team} 
                     roster={roster} 
                     shiftFocus={props.shiftFocus} 
                     currentPick={props.currentPick} 
@@ -491,7 +500,8 @@ function DraftBoard(props) {
                 history={props.history} 
                 currentPick={props.currentPick} 
                 teams={props.teams} 
-                shiftFocus={props.shiftFocus}/>
+                shiftFocus={props.shiftFocus}
+                players={props.players}/>
         
     }
 }
@@ -515,7 +525,7 @@ function DraftSummary(props) {
     useEffect(()=>{
         let end = page*pageLength+8 >= ROUNDS*props.teams.length ? ROUNDS*props.teams.length : page*pageLength+8
         setSummary(props.history.slice(page*pageLength, end))
-    }, [page])
+    }, [page, props])
 
     const navigate = (e) => {
         e.preventDefault()
@@ -537,15 +547,15 @@ function DraftSummary(props) {
                 <tbody>
                     {summary.map((row) =>
                         //TODO: Styling for active pick
-                        <tr key={'draft_row_' + row.Slot}>
+                        <tr key={'draft_row_' + row.ID}>
                             <td><div className='d-grid gap-2 text-nowrap overflow-hidden'>
                                 <button 
                                 className='btn btn-outline-success btn-sm' 
-                                team={row.team} 
-                                onClick={teamFocus}>{props.teams.filter(team => row.ID === team.ID).Name}</button>
+                                team={row.Team} 
+                                onClick={teamFocus}>{props.teams.find(team => row.Team === team.ID).Name}</button>
                             </div></td>
-                            <td>{row.Slot}</td>
-                            <td>{row.Player === '' ? 'tbd' : props.players.filter(player => player.ID === row.Player).Name}</td>
+                            <td>Pick: {row.ID + 1}</td>
+                            <td>{row.Player === null ? 'tbd' : props.players.find(player => player.ID === row.Player).Name}</td>
                         </tr>
                     )}
                 </tbody>
@@ -577,7 +587,7 @@ function DraftSummary(props) {
 }
 
 function PBio(props) {
-    
+
     const resetFocus = (e) => {
         e.preventDefault()
         props.shiftFocus({context: 'summary', focusable: null})
@@ -611,28 +621,34 @@ function PBio(props) {
     ]
 
     let url = 'https://www.pro-football-reference.com/players/' + props.player.PfbrName[0] + '/' + props.player.PfbrName + '.htm'
-    let displayStats = {}
+    let displayStats = []
+    if (props.player.Position === "RB") {
+        displayStats.push({key: "YPC", value: Math.ceil((props.player.RushYards/props.player.RushAttempts)*100) / 100})
+    }
     Object.entries(props.player).forEach(([key, value]) => {
         switch (props.player.Position) {
             case 'QB':
                 if (QB.includes(key)) {
-                    Object.defineProperty(displayStats, key, {
-                        value: value
-                    })
+                    // Object.defineProperty(displayStats, key, {
+                    //     value: value
+                    // })
+                    displayStats.push({key: key, value: value})
                 }
                 break
             case 'RB':
                 if (RB.includes(key)) {
-                    Object.defineProperty(displayStats, key, {
-                        value: value
-                    })
+                    // Object.defineProperty(displayStats, key, {
+                    //     value: value
+                    // })
+                    displayStats.push({key: key, value: value})
                 }
                 break
             default:
                 if (WR.includes(key)) {
-                    Object.defineProperty(displayStats, key, {
-                        value: value
-                    })
+                    // Object.defineProperty(displayStats, key, {
+                    //     value: value
+                    // })
+                    displayStats.push({key: key, value: value})
                 }
                 break
         }
@@ -662,9 +678,9 @@ function PBio(props) {
                         <td>{props.player.Team}</td>
                     </tr>
                 </thead>
-                <tbody className='text-center'> {Object.entries(displayStats).map(([key, value]) => 
-                        <tr key={key + "_bio"}>
-                            <th>{key}</th><td>{value}</td><td colSpan='2'></td>
+                <tbody className='text-center'>{ displayStats.map(s =>  
+                        <tr key={s.key + "_bio"}>
+                            <th>{s.key}</th><td>{s.value}</td><td colSpan='2'></td>
                         </tr>
                     )}
                 </tbody>
@@ -675,7 +691,7 @@ function PBio(props) {
                     <tr>
                         <td colSpan='4'>
                         <div className='d-grid gap-2'>
-                        {props.teamControl === props.drafting ? 
+                        {props.teamControl.ID === props.drafting ? 
                         <button className='btn btn-success btn-sm' id={props.player.ID} onClick={handleSelection}>Draft</button> : 
                         <button className='btn btn-light btn-sm' id={props.player.ID} onClick={handleSelection} disabled>Draft</button>}
                         </div>
@@ -740,7 +756,7 @@ function TeamSummary(props) {
                 : ''
                 }
                 <tr><th colSpan='5'>{props.team.Name}</th></tr>
-                <tr><td colSpan='5'>Manager: {props.team.Manager.Name}</td></tr>
+                <tr><td colSpan='5'>Manager: {props.team.Manager.name}</td></tr>
                 <tr>
                     <td></td><th>QB</th><th>RB</th><th>WR</th><th>TE</th>
                 </tr>
