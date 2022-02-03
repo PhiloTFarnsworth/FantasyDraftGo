@@ -9,7 +9,6 @@ function LoginForm(props) {
     const handleSubmit = (e) => {
         e.preventDefault()
         let csrftoken = document.getElementById('CSRFToken').textContent
-        console.error(csrftoken)
         let userData = { username: username, password: password }
         fetch('/login', {
             credentials: 'include',

@@ -521,20 +521,19 @@ func TestGetDraftOrderEmpty(t *testing.T) {
 	}
 }
 
-// func TestSetDraftOrder(t *testing.T) {
-// 	a := larryClient
-// 	w, err := postJSON(a, "/league/setorder/1", `[{"league":1}]`, http.StatusOK)
-// }
-
 func TestStartDraft(t *testing.T) {
 	a := larryClient
 	w, err := postJSON(a, "/startdraft", `{"league":1}`, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Body.String() != `[{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}]` {
-		t.Errorf(`want [{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}] got %v`, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
+	// Need to marshall this information, then check that each team has a unique slot.
+	// if w.Body.String() != `[{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}]` {
+	// 	t.Errorf(`want [{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}] got %v`, w.Body.String())
+	// }
 }
 
 /*

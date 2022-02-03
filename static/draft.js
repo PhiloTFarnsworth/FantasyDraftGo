@@ -7,6 +7,7 @@ const ROUNDS = 15
 
 function Draft(props) {
     const [draftPool, setDraftPool] = useState([])
+    const [availablePlayers, setAvailablePlayers] = useState([])
     const [draftHistory, setDraftHistory] = useState([])
     const [statHeaders, setStatHeaders] = useState([])
     const [boardFocus, setBoardFocus] = useState({context: "summary"})
@@ -18,7 +19,110 @@ function Draft(props) {
     const User = useContext(UserContext)
     const Notify = useContext(NotifyContext)
 
-    //To start, we want to fetch our draft history and draft class.  While these could be gathered from
+    useEffect(() => {
+        fetchDraftHistory()
+        fetchDraftPool()
+        
+        //So we're going to use a websocket to update the draft as it progresses.
+        draftSocket.current = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/draft/'
+            + props.league.ID
+            + '?userID='
+            + User.ID
+        )
+    }, [])
+
+    //the first rule of building something is getting it to work.  For now, we check if draftpool and
+    //drafthistory have been set, then we'll render the draft
+    useEffect(() => {
+        if (draftPool.length > 0 && draftHistory.length > 0) {
+            setLoading(false)
+        }
+    }, [draftPool, draftHistory]);
+    
+    //Finally we need to trim the draft pool?  This is gonna need a think.
+    useEffect(() => {
+    //remove drafted players from draft pool
+    let pool = [...availablePlayers]
+    let picks = draftHistory.filter(p => p.Player != null)
+    picks.forEach(p => {
+        let index = pool.findIndex(player => player === p.Player)
+        pool.splice(index, 1)
+    })
+    setAvailablePlayers(pool)
+        
+    }, [loading]);
+    
+
+    //This useEffect sets control for our draft socket.  We want it to update not only when the 'draftsocket'
+    //transitions from null, but we want to update this anytime we have a state change on any states we access
+    //within this controller.  
+    useEffect(() => {
+        if (draftSocket !== null) {
+
+            draftSocket.current.onclose = (e) => {
+                console.log('Websocket closed unexpectedly')
+            }
+            draftSocket.current.onopen = (e) => {
+                //When we join, all users in the room receive a status message, while the joiner gets
+                //a user list.  So we probably don't need this...  
+            }
+            draftSocket.current.onmessage = (e) => {
+                let data = JSON.parse(e.data)
+                switch (data.Kind) {
+                    //"users" is only sent upon joining a room.  it passes a list of user ids that are
+                    //currently in a draft instance
+                    case "users": {
+                        //create a temp status, with all teams managers ids and an active false
+                        let tempStatus = props.teams.map(team => {return {ID: team.Manager.ID, active: false}})
+                        tempStatus.forEach(user => {
+                            if (data.Users.includes(user.ID)) {
+                                user.active = true
+                            }
+                        })
+                        setUserStatus(tempStatus)
+                        break;
+                    }
+                    case "status":
+                        {
+                        let tempStatus = [...userStatus]
+                        tempStatus.forEach(user => {
+                            if (user.ID === data.User) {
+                                user.active = data.Active
+                            }
+                        })
+                        setUserStatus(tempStatus)
+                        break;
+                    }
+                    case "draft":
+                        //In this version, we need to update history and availablePlayers
+                        let avail = availablePlayers.filter(p => p !== data.Player)
+                        let history = [...draftHistory]
+                        let slot = history.find(p => p.Slot === data.Pick)
+                        slot.Player = data.Player
+                        setAvailablePlayers(avail)
+                        setDraftHistory(history)
+                        shiftFocus({context: "default"})
+                        setCurrentPick(currentPick + 1)
+                        Notify(props.teams.find(t => t.ID === data.Team).Name + " has selected " + draftPool.find(p => p.ID === data.Player).Name, 1)
+                        break;
+                    case "chat":
+                        var item = document.createElement("div")
+                        item.innerHTML = e.data
+                        var chat = document.getElementById("fakechat")
+                        chat.appendChild(item)
+                        break;
+                    default:
+                        console.log("sent " + data.Kind + " message type, why did you do that?")
+                        break;
+                }
+            }
+        }
+    }, [draftSocket, draftHistory, availablePlayers, userStatus, currentPick])
+
+        //To start, we want to fetch our draft history and draft class.  While these could be gathered from
     //our initial websocket connection or as a single request, I can see a scenario where we want to have 
     //a draft class preview before a draft, as well as an accessible draft history after the draft.     
 
@@ -26,7 +130,7 @@ function Draft(props) {
         fetch("/league/draft/" + props.league.ID, { method: "GET" })
         .then(response => response.json())
         .then(data => {
-            let history = data.map(p => {p})
+            let history = data.map(p => p)
             setCurrentPick(history.length)
             //We'll pass an empty or incomplete list of picks.  We want to then expand the array
             //to hold all potential picks in the future.
@@ -37,9 +141,9 @@ function Draft(props) {
                 for (let i = history.length; i < draftLength; i++) {
                     let roundPick = i % props.teams.length
                     if (Math.floor(i/props.teams.length) % 2 === 0) {
-                        history.push({ID: i, Player: null, Team: snakeFirst[roundPick].ID})
+                        history.push({Player: null, Slot: i, Team: snakeFirst[roundPick].ID})
                     } else {
-                        history.push({ID: i, Player: null, Team: snakeSecond[roundPick].ID})
+                        history.push({Player: null, Slot: i, Team: snakeSecond[roundPick].ID})
                     } 
                 }
             }
@@ -93,93 +197,13 @@ function Draft(props) {
                         }
                     }
                 }
+            let availPlayers = draftClass.map(p => p.ID)
             setStatHeaders(headers)
+            setAvailablePlayers(availPlayers)
             setDraftPool(draftClass)
         })
         .catch(error => Notify(error, 0))
     }
-
-    //This useEffect populates some of our states once on load
-    useEffect(() => {
-        fetchDraftHistory()
-        fetchDraftPool()
-        if (draftHistory.length > 0) {
-            //remove drafted players from draft pool
-            let pool = [...draftPool]
-            draftHistory.map(pick => {
-                let index = pool.findIndex(player => player.ID === pick.Player)
-                pool.splice(index, 1)
-            })
-            setDraftPool(pool)
-        }
-        //So we're going to use a websocket to update the draft as it progresses.
-        draftSocket.current = new WebSocket(
-            'ws://'
-            + window.location.host
-            + '/ws/draft/'
-            + props.league.ID
-            + '?userID='
-            + User.ID
-        )
-        setLoading(false)
-    }, [])
-
-    //This useEffect sets control for our draft socket.  We want it to update not only when the 'draftsocket'
-    //transitions from null, but we want to update this anytime we have a state change on any states we access
-    //within this controller.  
-    useEffect(() => {
-        if (draftSocket !== null) {
-
-            draftSocket.current.onclose = (e) => {
-                console.log('Websocket closed unexpectedly')
-            }
-            draftSocket.current.onopen = (e) => {
-                //When we join, all users in the room receive a status message, while the joiner gets
-                //a user list.  So we probably don't need this...  
-            }
-            draftSocket.current.onmessage = (e) => {
-                let data = JSON.parse(e.data)
-                switch (data.Kind) {
-                    //"users" is only sent upon joining a room.  it passes a list of user ids that are
-                    //currently in a draft instance
-                    case "users": {
-                        //create a temp status, with all teams managers ids and an active false
-                        let tempStatus = props.teams.map(team => {return {ID: team.Manager.ID, active: false}})
-                        tempStatus.forEach(user => {
-                            if (data.Users.includes(user.ID)) {
-                                user.active = true
-                            }
-                        })
-                        setUserStatus(tempStatus)
-                        break;
-                    }
-                    case "status":
-                        {
-                        let tempStatus = [...userStatus]
-                        tempStatus.forEach(user => {
-                            if (user.ID === data.User) {
-                                user.active = data.Active
-                            }
-                        })
-                        setUserStatus(tempStatus)
-                        break;
-                    }
-                    case "draft":
-                        console.log(data)
-                        break;
-                    case "chat":
-                        var item = document.createElement("div")
-                        item.innerHTML = e.data
-                        var chat = document.getElementById("fakechat")
-                        chat.appendChild(item)
-                        break;
-                    default:
-                        console.log("sent " + data.Kind + " message type, why did you do that?")
-                        break;
-                }
-            }
-        }
-    }, [draftSocket])
 
     function submitChat(e) {
         e.preventDefault()
@@ -236,6 +260,9 @@ function Draft(props) {
         }    
     }
 
+    
+
+
 
     if (loading) {
         return(<div>loading...</div>)
@@ -261,6 +288,7 @@ function Draft(props) {
         />
         <DraftPool 
         players={draftPool} 
+        available={availablePlayers}
         headers={statHeaders} 
         tableSort={sortDraftPool} 
         shiftFocus={shiftFocus} />
@@ -434,7 +462,7 @@ function DraftPool(props) {
                 </tr>
             </thead>
             <tbody>
-            {props.players.map((player) => 
+            {props.players.filter(p => props.available.includes(p.ID)).map((player) => 
                 <tr key={player.PfbrName} onClick={HandleFocus} id={player.ID}>
                     {Object.values(player).map((stat, index) => {
                         //We should have a key for this value, probably a confab of code_name and the stat header.  But since we're 
@@ -467,7 +495,7 @@ function DraftBoard(props) {
         let teamSummaries = []
         for (let i = 0; i < props.teams.length; i++) {
             let picks = props.history.filter(p => p.Team === props.teams[i].ID)
-            let roster = picks.map(p => p.Player)
+            let roster = picks.map(pick => props.players.find(p => p.ID === pick.Player))
             teamSummaries.push(<TeamSummary 
                                 team={props.teams[i]} 
                                 roster={roster} 
@@ -485,8 +513,8 @@ function DraftBoard(props) {
                 shiftFocus={props.shiftFocus}/>
         }
         if (props.focus.context === 'team') {
-            let picks = props.history.filter(pick => pick.Team === props.focus.ID)
-            let roster = picks.map(pick => pick.Player)
+            let picks = props.history.filter(pick => pick.Team === props.focus.data.ID).filter(p => p.Player != null)
+            let roster = picks.map(pick => props.players.find(p => p.ID === pick.Player))
             let team = props.teams.find(team => team.ID === drafting.Team)
             return <TeamSummary 
                     team={team} 
@@ -534,7 +562,8 @@ function DraftSummary(props) {
 
     const teamFocus = (e) => {
         e.preventDefault()
-        props.shiftFocus({'context': 'team', 'ID': e.currentTarget.attributes.team.value})
+        let chosen = props.teams.find(t => t.ID == e.currentTarget.attributes.team.value)
+        props.shiftFocus({context: 'team', focusable: chosen})
     }
 
     return(
@@ -547,14 +576,14 @@ function DraftSummary(props) {
                 <tbody>
                     {summary.map((row) =>
                         //TODO: Styling for active pick
-                        <tr key={'draft_row_' + row.ID}>
+                        <tr key={'draft_row_' + row.Slot}>
                             <td><div className='d-grid gap-2 text-nowrap overflow-hidden'>
                                 <button 
                                 className='btn btn-outline-success btn-sm' 
                                 team={row.Team} 
                                 onClick={teamFocus}>{props.teams.find(team => row.Team === team.ID).Name}</button>
                             </div></td>
-                            <td>Pick: {row.ID + 1}</td>
+                            <td>Pick: {row.Slot + 1}</td>
                             <td>{row.Player === null ? 'tbd' : props.players.find(player => player.ID === row.Player).Name}</td>
                         </tr>
                     )}

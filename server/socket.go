@@ -315,25 +315,15 @@ func (h *hub) run() {
 			}
 
 			draftTable := "draft_" + strconv.FormatInt(p.league, 10)
-			newPick, err := db.Exec("INSERT INTO "+draftTable+" (ID, player, team) VALUES (?,?,?)", p.pick, p.player, p.team)
+			_, err = tx.Exec("INSERT INTO "+draftTable+" (ID, player, team) VALUES (?,?,?)", p.pick, p.player, p.team)
 			if err != nil {
 				fmt.Println(err)
-				tx.Rollback()
-			}
-
-			pickIdentity, err := newPick.LastInsertId()
-			if err != nil {
-				fmt.Println(err)
-				tx.Rollback()
-			}
-			if pickIdentity != p.pick {
-				//make sure that the pick's ID == the order of picks, otherwise we got some desync error
-				//That we should've prevented on the frontend
 				tx.Rollback()
 			}
 
 			if err = tx.Commit(); err != nil {
-				fmt.Print(err)
+				fmt.Println(err)
+				fmt.Print("why?")
 			}
 
 			//What do we want to broadcast?  That the player has been taken by a team at a certain pick.
