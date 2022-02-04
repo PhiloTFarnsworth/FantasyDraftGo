@@ -1,4 +1,5 @@
-const { useState, useEffect } = React;
+'use strict'
+import { useState, useContext } from 'react';
 
 function LoginForm(props) {
     const [username, setUsername] = useState('')
@@ -198,3 +199,5 @@ function LoginController(props) {
         </div>
     )
 }
+
+export default LoginController

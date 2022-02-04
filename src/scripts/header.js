@@ -1,4 +1,6 @@
-const { useState, useEffect, useContext } = React;
+'use strict'
+import React, { useContext } from 'react';
+import { UserContext } from './util.js';
 function Welcome(props) {
     const User = useContext(UserContext)
     if (User.name === '') {
@@ -27,3 +29,5 @@ function Header(props) {
         </nav>
     )
 }
+
+export default Header

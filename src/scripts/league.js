@@ -1,4 +1,7 @@
-const { useState, useEffect, useContext } = React;
+'use strict'
+import Draft from './draft.js';
+import { UserContext, NotifyContext } from './util.js';
+import React, { useState, useEffect, useContext } from 'react';
 //The ultimate layer is the League layer, where a user has specified a specific league
 //and is returned a portal for that league.  From here we can access all the managerial options
 //a user has access to as a team owner, as well as any information about the league.
@@ -597,6 +600,8 @@ function DraftSettings(props) {
         </div>
     )
 }
+
+export default LeagueHome
 
 
 //Setting a draft order is a neat feature, but this approach has been finicky. Likely want to
