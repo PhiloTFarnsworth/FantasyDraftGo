@@ -13,10 +13,10 @@ const { useState, useEffect, useContext } = React;
 //needs tools to set draft order, set a date and time for the draft to officially commence and change options.
 //These settings should be visible to all users.  When draft is active, direct users to draft.
 //DRAFT - This should lead straight to the draft component
-//INPROGRESS - This should be the most commonly seen view.  display standings, a little smack talk messenger,
+//SEASON - This should be the most commonly seen view.  display standings, a little smack talk messenger,
 //and links to teams, free agents and all that good stuff.  
 //COMPLETE - This should display end of the year awards and the like.  links should lead to non-interactive versions
-//of links from the inprogress screen.
+//of links from the season screen.
 
 //After some consultation with myself, I think a hierarchy is emerging.  All leagues need a header to identify
 //the context as well as a league nav, then we will use our league states to identify a default component

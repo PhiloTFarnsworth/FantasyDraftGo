@@ -3,20 +3,14 @@ package tests
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/PhiloTFarnsworth/FantasySportsAF/server"
-	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
-	"github.com/PhiloTFarnsworth/FantasySportsAF/store/playerimport"
 	"github.com/PhiloTFarnsworth/FantasySportsAF/store/scanners"
 	"github.com/gin-gonic/gin"
-	csrf "github.com/utrack/gin-csrf"
 )
 
 //We're going to keep a whole heap of tests here.  The first question, is how do we model the database
@@ -34,36 +28,6 @@ type client struct {
 var larryClient client
 var barryClient client
 var marryClient client
-
-var r *gin.Engine
-
-//Set up our test server and test database, add csrftoken path to create a client
-func TestMain(m *testing.M) {
-	store.ConnectDB("testfsgo")
-	db := store.GetDB()
-	//create/clear testfsgo database
-	//./store/league.sql
-	err := store.BatchSQLFromFile(os.Getenv("FSLSA"), db)
-	if err != nil {
-		fmt.Println("league batch: ", err)
-		os.Exit(1)
-	}
-	//./store/user.sql
-	err = store.BatchSQLFromFile(os.Getenv("FSUSA"), db)
-	if err != nil {
-		fmt.Println("user batch: ", err)
-		os.Exit(1)
-	}
-
-	playerimport.Import("testfsgo")
-
-	r = server.NewRouter()
-
-	//Fake path to retrieve csrf token
-	r.GET("csrftoken", func(c *gin.Context) { c.String(http.StatusOK, csrf.GetToken(c)) })
-
-	os.Exit(m.Run())
-}
 
 func TestPlayers(t *testing.T) {
 	w := httptest.NewRecorder()
@@ -421,7 +385,7 @@ func TestLeagueHome(t *testing.T) {
 	//Beyond how unwieldy this gets, we really want to track changes to this page as we have users join.
 	//There's probably a better way that's eluding me at the moment, but for some larger tests (like a max size league)
 	//We're going to want to compare views in a programmatic way.
-	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"}},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"ID":5,"name":"barry","email":"barry@mail.com"}},{"ID":3,"Name":"Marry Christmas","Manager":{"ID":6,"name":"marry","email":"marry@mail.com"}}]}`
+	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"},"Slot":0},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"ID":5,"name":"barry","email":"barry@mail.com"},"Slot":0},{"ID":3,"Name":"Marry Christmas","Manager":{"ID":6,"name":"marry","email":"marry@mail.com"},"Slot":0}]}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -503,24 +467,6 @@ func TestSetDraftSettings(t *testing.T) {
 	}
 }
 
-func TestGetDraftOrderEmpty(t *testing.T) {
-	a := larryClient
-	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/league/order/1", nil)
-	if err != nil {
-		t.Fatalf("Bad Request: %v", err)
-	}
-	req.Header.Add("Cookie", a.cookie)
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("want %v got %v", http.StatusOK, w.Code)
-	}
-	want := "null"
-	if want != w.Body.String() {
-		t.Errorf("want %v, got %v", want, w.Body.String())
-	}
-}
-
 func TestStartDraft(t *testing.T) {
 	a := larryClient
 	w, err := postJSON(a, "/startdraft", `{"league":1}`, http.StatusOK)
@@ -534,6 +480,24 @@ func TestStartDraft(t *testing.T) {
 	// if w.Body.String() != `[{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}]` {
 	// 	t.Errorf(`want [{"Team":1,"Slot":2},{"Team":2,"Slot":1},{"Team":3,"Slot":3}] got %v`, w.Body.String())
 	// }
+}
+
+func TestGetEmptyHistory(t *testing.T) {
+	a := larryClient
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/draft/1", nil)
+	if err != nil {
+		t.Fatalf("Bad Request: %v", err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := "[]"
+	if w.Body.String() != want {
+		t.Errorf("want %v got %v", want, w.Body.String())
+	}
 }
 
 /*
