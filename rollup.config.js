@@ -8,7 +8,8 @@ export default {
   input: ['src/app.js'],
   output: {
     file: 'static/app.js',
-    format: 'es'
+    format: 'es', 
+    sourcemap: 'inline'
   },
   plugins: [
     terser(),

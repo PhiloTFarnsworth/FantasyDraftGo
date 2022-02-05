@@ -279,20 +279,24 @@ function Draft(props) {
             <button type="submit">chat</button>
         </form>
         <DraftBoard 
-        focus={boardFocus}
-        history={draftHistory}
-        players={draftPool}
-        shiftFocus={shiftFocus}
-        selectPlayer={submitPick}
-        currentPick={currentPick}
-        teams={props.teams}
-        />
+            focus={boardFocus}
+            history={draftHistory}
+            players={draftPool}
+            shiftFocus={shiftFocus}
+            selectPlayer={submitPick}
+            currentPick={currentPick}
+            teams={props.teams}/>
         <DraftPool 
-        players={draftPool} 
-        available={availablePlayers}
-        headers={statHeaders} 
-        tableSort={sortDraftPool} 
-        shiftFocus={shiftFocus} />
+            players={draftPool} 
+            available={availablePlayers}
+            headers={statHeaders} 
+            tableSort={sortDraftPool} 
+            shiftFocus={shiftFocus} />
+        <DraftOrder currentPick={currentPick} 
+            teams={props.teams} 
+            userStatus={userStatus} 
+            history={draftHistory} 
+            shiftFocus={shiftFocus}/>
         </div>
         
     )
@@ -516,9 +520,8 @@ function DraftBoard(props) {
         if (props.focus.context === 'team') {
             let picks = props.history.filter(pick => pick.Team === props.focus.data.ID).filter(p => p.Player != null)
             let roster = picks.map(pick => props.players.find(p => p.ID === pick.Player))
-            let team = props.teams.find(team => team.ID === drafting.Team)
             return <TeamSummary 
-                    team={team} 
+                    team={props.focus.data} 
                     roster={roster} 
                     shiftFocus={props.shiftFocus} 
                     currentPick={props.currentPick} 
@@ -812,6 +815,80 @@ function TeamSummary(props) {
                 </tfoot>
             </table>
         )
+}
+
+function SlotBox(props) {
+    return(
+        <table className='table-responsive' style={{'background': props.highlight}}>
+            <thead>
+                <tr><td colSpan='3'>{props.team.Name}</td></tr>
+            </thead>
+            <tbody>
+                <tr><td>{props.round}</td><td>-</td><td>{props.pick}</td></tr>
+            </tbody>
+        </table>
+    )
+}
+//What we want here is a bar across the bottom which both indicates who is in the draft as well as who is on the clock to make
+//a pick.  
+function DraftOrder(props) {
+    const BS_SUCCESS = '#198754'
+    const BS_WARNING = '#ffc107'
+    const BS_PRIMARY = '#0d6efd'
+    const BS_SECONDARY = '#6c757d'
+
+
+    function HandleFocus(e) {
+        e.preventDefault()
+        let chosen = props.teams.find(t => t.ID == e.currentTarget.attributes.team.value)
+        props.shiftFocus({context: 'team', focusable: chosen})
+    }
+
+    let numTeams = props.teams.length
+    let draftMax = numTeams * ROUNDS
+    let draftData = []
+
+    if (props.userStatus === []) {
+        return null
+    }
+
+    if (props.currentPick >= draftMax) {
+        return null
+    }
+    for (let i = props.currentPick; i < props.currentPick + 5; i++) {
+        let round = Math.floor(i/numTeams) + 1
+        let pick = (i % numTeams) + 1
+        let highlight = ''
+        let teamID = props.history[i].Team
+        let user = props.userStatus.find(u => u.ID === teamID)
+        if (i < draftMax) {
+            if (i === props.currentPick) {
+                highlight = BS_SUCCESS
+                if (!user.active) {
+                    highlight = BS_WARNING
+                }
+            } else {
+                highlight = BS_PRIMARY
+                if (!user.active) {
+                    highlight = BS_SECONDARY
+            }
+            }
+        }
+        if (i < draftMax) {
+            draftData.push({'pick': pick, 'round': round, 'team': props.teams.find(t => t.ID === teamID), 'highlight': highlight})
+        }
+    }
+
+    return(
+        <div className='draftBar'>
+            <div className='orderRow'>
+                    {draftData.map(data => 
+                    <div className='orderCol' key={data.team.Name + 'order' + data.round + data.pick} onClick={HandleFocus} team={data.team.ID}>
+                        <SlotBox pick={data.pick} round={data.round} team={data.team} highlight={data.highlight}/>
+                        </div>)}
+            </div>
+        </div>
+    )
 }
 
 export default Draft

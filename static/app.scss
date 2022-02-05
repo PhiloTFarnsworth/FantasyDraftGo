@@ -1,0 +1,58 @@
+//What are we building custom on this project?  We need the draft order bar and probably some basic styling for root (a grass green background)?
+body{
+    background-color: rgb(0, 120, 0);
+    min-height: 100vh;
+    background-image: url(Yardage.png), url(YardageRight.png);
+    background-repeat: repeat-y, repeat-y;
+    background-position: 0px 0px, top right;
+}
+
+#mainWindow{
+    min-height: 95vh;
+}
+
+.container{
+    background-color: rgba($color: #DFDFDF, $alpha: .9);
+}
+
+@media (hover: hover) {
+    .hoverDiv:hover {
+            background:rgb(120, 120, 120);
+    }
+}
+
+.draftBar {
+    background-color: grey;
+    width: 100vw;
+    max-height: 8vw;
+    overflow-x: scroll;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0;
+    opacity: 95%;
+    //Row
+    .orderRow {
+        display: inline-flex;
+        //Col
+        .orderCol {
+            display: grid;
+            white-space: nowrap;
+            width: 20vw;
+            min-width: 20vw;
+            outline: double;
+            //slot container
+            table {
+                tr{
+                    th, td{
+                        max-width: 80%;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        text-align: center;
+                    }
+                }
+            }
+        }
+    }
+}

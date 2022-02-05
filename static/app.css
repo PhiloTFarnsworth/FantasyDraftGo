@@ -1,0 +1,51 @@
+body {
+  background-color: #007800;
+  min-height: 100vh;
+  background-image: url(Yardage.png), url(YardageRight.png);
+  background-repeat: repeat-y, repeat-y;
+  background-position: 0px 0px, top right;
+}
+
+#mainWindow {
+  min-height: 95vh;
+}
+
+.container {
+  background-color: rgba(223, 223, 223, 0.9);
+}
+
+@media (hover: hover) {
+  .hoverDiv:hover {
+    background: #787878;
+  }
+}
+.draftBar {
+  background-color: grey;
+  width: 100vw;
+  max-height: 8vw;
+  overflow-x: scroll;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0;
+  opacity: 95%;
+}
+.draftBar .orderRow {
+  display: inline-flex;
+}
+.draftBar .orderRow .orderCol {
+  display: grid;
+  white-space: nowrap;
+  width: 20vw;
+  min-width: 20vw;
+  outline: double;
+}
+.draftBar .orderRow .orderCol table tr th, .draftBar .orderRow .orderCol table tr td {
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+/*# sourceMappingURL=app.css.map */
