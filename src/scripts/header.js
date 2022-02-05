@@ -1,17 +1,17 @@
 'use strict'
-import React, { useContext } from 'react';
-import { UserContext } from './util.js';
-function Welcome(props) {
-    const User = useContext(UserContext)
-    if (User.name === '') {
-        return <p className='text-white text-center mt-3'>Welcome Guest!</p>
-    }
-    return <p className='text-white text-center mt-3'>Welcome {User.name}!</p>
+import React, { useContext } from 'react'
+import { UserContext } from './util.js'
+function Welcome (props) {
+  const User = useContext(UserContext)
+  if (User.name === '') {
+    return <p className='text-white text-center mt-3'>Welcome Guest!</p>
+  }
+  return <p className='text-white text-center mt-3'>Welcome {User.name}!</p>
 }
 
-function Header(props) {
-    const User = useContext(UserContext)
-    return (
+function Header (props) {
+  const User = useContext(UserContext)
+  return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
             <div className='container-fluid text-center'>
                 <div className='col'>
@@ -27,7 +27,7 @@ function Header(props) {
                 </div>
             </div>
         </nav>
-    )
+  )
 }
 
 export default Header

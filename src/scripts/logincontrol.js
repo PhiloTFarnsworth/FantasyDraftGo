@@ -1,47 +1,47 @@
 'use strict'
-import React, { useState, useContext } from 'react';
-import { NotifyContext } from './util.js';
+import React, { useState, useContext } from 'react'
+import { NotifyContext } from './util.js'
 
-function LoginForm(props) {
-    const [username, setUsername] = useState('')
-    const [password, setPassword] = useState('')
+function LoginForm (props) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
 
-    const Notify = useContext(NotifyContext)
+  const Notify = useContext(NotifyContext)
 
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        let csrftoken = document.getElementById('CSRFToken').textContent
-        let userData = { username: username, password: password }
-        fetch('/login', {
-            credentials: 'include',
-            method: 'POST',
-            body: JSON.stringify(userData),
-            headers: {
-                'X-CSRF-TOKEN': csrftoken,
-                'Content-Type': 'Application/JSON',
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log('success:', data)
-                // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
-                if (data['ok'] !== false) {
-                    let userObj = { 'ID': data.ID, 'name': data.name, 'email': data.email }
-                    props.onLogin(userObj)
-                } else {
-                    Notify(data['error'], 0)
-                    console.error(data['error'])
-                }
-            })
-            .catch(error => { console.error('fail:', error) })
-    }
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const csrftoken = document.getElementById('CSRFToken').textContent
+    const userData = { username: username, password: password }
+    fetch('/login', {
+      credentials: 'include',
+      method: 'POST',
+      body: JSON.stringify(userData),
+      headers: {
+        'X-CSRF-TOKEN': csrftoken,
+        'Content-Type': 'Application/JSON'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log('success:', data)
+        // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
+        if (data.ok !== false) {
+          const userObj = { ID: data.ID, name: data.name, email: data.email }
+          props.onLogin(userObj)
+        } else {
+          Notify(data.error, 0)
+          console.error(data.error)
+        }
+      })
+      .catch(error => { console.error('fail:', error) })
+  }
 
-    const handleChange = (e) => {
-        e.preventDefault()
-        e.target.type === 'password' ? setPassword(e.target.value) : setUsername(e.target.value);
-    }
+  const handleChange = (e) => {
+    e.preventDefault()
+    e.target.type === 'password' ? setPassword(e.target.value) : setUsername(e.target.value)
+  }
 
-    return (
+  return (
         <form onSubmit={handleSubmit}>
             <div className='d-flex justify-content-end mb-2'>
                 <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
@@ -59,60 +59,60 @@ function LoginForm(props) {
                 <button type='submit' className='btn btn-success'>Login</button>
             </div>
         </form>
-    )
+  )
 }
 
-function RegisterForm(props) {
-    const [username, setUsername] = useState('')
-    const [password, setPassword] = useState('')
-    const [confirm, setConfirm] = useState('')
-    const [email, setEmail] = useState('')
+function RegisterForm (props) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [email, setEmail] = useState('')
 
-    const Notify = useContext(NotifyContext)
+  const Notify = useContext(NotifyContext)
 
-    const handleChange = (e) => {
-        e.preventDefault()
-        if (e.target.name === 'username') {
-            setUsername(e.target.value)
-        } else if (e.target.name === 'password') {
-            setPassword(e.target.value)
-        } else if (e.target.name === 'confirm') {
-            setConfirm(e.target.value)
+  const handleChange = (e) => {
+    e.preventDefault()
+    if (e.target.name === 'username') {
+      setUsername(e.target.value)
+    } else if (e.target.name === 'password') {
+      setPassword(e.target.value)
+    } else if (e.target.name === 'confirm') {
+      setConfirm(e.target.value)
+    } else {
+      setEmail(e.target.value)
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (password !== confirm) {
+      Notify('Password and Password confirmation do not match!', 0)
+    }
+    const csrftoken = document.getElementById('CSRFToken').textContent
+    const userData = { username: username, password: password, email: email }
+    fetch('/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+      headers: {
+        'X-CSRF-TOKEN': csrftoken,
+        'Content-Type': 'Application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.ok !== false) {
+          const userObj = { ID: data.ID, name: data.name, email: data.email }
+          props.onRegister(userObj)
         } else {
-            setEmail(e.target.value)
+          console.error(data.error)
+          Notify(data.error, 0)
         }
-    }
+      })
+      .catch(error => { console.error('fail:', error) })
+    return false
+  }
 
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        if (password !== confirm) {
-            Notify('Password and Password confirmation do not match!', 0)
-        }
-        let csrftoken = document.getElementById('CSRFToken').textContent
-        let userData = { username: username, password: password, email: email }
-        fetch('/register', {
-            method: 'POST',
-            body: JSON.stringify(userData),
-            headers: {
-                'X-CSRF-TOKEN': csrftoken,
-                'Content-Type': 'Application/json'
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data['ok'] !== false) {
-                    let userObj = { 'ID': data.ID, 'name': data.name, 'email': data.email }
-                    props.onRegister(userObj)
-                } else {
-                    console.error(data['error'])
-                    Notify(data['error'], 0)
-                }
-            })
-            .catch(error => { console.error('fail:', error) })
-        return false
-    }
-
-    return (
+  return (
         <form onSubmit={handleSubmit}>
             <div className='d-flex justify-content-end'>
                 <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
@@ -138,54 +138,53 @@ function RegisterForm(props) {
                 <button type='submit' className='btn btn-success'>Register</button>
             </div>
         </form>
-    )
+  )
 }
 
-function RegisterButton(props) {
-    return (
+function RegisterButton (props) {
+  return (
         <button onClick={props.onClick} className='btn btn-success'>Register</button>
-    )
+  )
 }
 
-function LoginButton(props) {
-    return (
+function LoginButton (props) {
+  return (
         <button onClick={props.onClick} className='btn btn-success'>Login</button>
-    )
+  )
 }
 
+function LoginController (props) {
+  const [loginActive, setLoginActive] = useState(false)
+  const [registerActive, setRegisterActive] = useState(false)
 
-function LoginController(props) {
-    const [loginActive, setLoginActive] = useState(false)
-    const [registerActive, setRegisterActive] = useState(false)
+  function toggleLoginStatus () {
+    loginActive ? setLoginActive(false) : setLoginActive(true)
+  }
 
-    function toggleLoginStatus() {
-        loginActive ? setLoginActive(false) : setLoginActive(true)
-    }
+  function toggleRegister () {
+    registerActive ? setRegisterActive(false) : setRegisterActive(true)
+  }
 
-    function toggleRegister() {
-        registerActive ? setRegisterActive(false) : setRegisterActive(true)
-    }
-
-    if (loginActive) {
-        return (
+  if (loginActive) {
+    return (
             <div className='row'>
                 <LoginForm
                     onLogin={props.onRegister}
                     onDismiss={toggleLoginStatus} />
             </div>
-        )
-    }
+    )
+  }
 
-    if (registerActive) {
-        return (
+  if (registerActive) {
+    return (
             <div className='row'>
                 <RegisterForm
                     onRegister={props.onRegister}
                     onDismiss={toggleRegister} />
             </div>
-        )
-    }
-    return (
+    )
+  }
+  return (
         <div className='row'>
             <div className='col'>
                 <h6 className='display-6'>New User?</h6>
@@ -198,7 +197,7 @@ function LoginController(props) {
                     onClick={toggleLoginStatus} />
             </div>
         </div>
-    )
+  )
 }
 
 export default LoginController
