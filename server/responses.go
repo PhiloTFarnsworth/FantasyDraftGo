@@ -73,13 +73,13 @@ func login(c *gin.Context) {
 	var email string
 	if err := db.QueryRow("SELECT ID, passhash, email FROM user WHERE name = ?", a.Name).Scan(&userID, &storedHash, &email); err != nil {
 		//Name doesn't exist or other catastrophic error
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//User exists, and we have the stored hash.
 	if err := bcrypt.CompareHashAndPassword(storedHash, []byte(a.Password)); err != nil {
 		//Password doesn't match
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -119,33 +119,31 @@ func register(c *gin.Context) {
 	//Validate username.  Make sure people can't pass an empty string.  Get rid of left and right side whitespace.
 	validName := strings.TrimLeft(strings.TrimRight(a.Name, " "), " ")
 	if validName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Username", "ok": false})
+		c.JSON(http.StatusBadRequest, "Bad Username")
 		return
 	}
 
 	//Validate email
 	validator := strings.Split(a.Email, "@")
 	if len(validator) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Email", "ok": false})
-		fmt.Println("Bad Email")
+		c.JSON(http.StatusBadRequest, "Bad Email")
 		return
 	}
 	if len(strings.Split(validator[1], ".")) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Email", "ok": false})
-		fmt.Println("Bad Email")
+		c.JSON(http.StatusBadRequest, "Bad Email")
 		return
 	}
 
 	//All good?  create pass hash
 	passhash, err := bcrypt.GenerateFromPassword([]byte(a.Password), 10)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//Start transaction
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -155,9 +153,7 @@ func register(c *gin.Context) {
 		passhash,
 		a.Email)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println(err)
-		fmt.Println("bad Insert")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -165,8 +161,7 @@ func register(c *gin.Context) {
 	//Grab minted user's ID
 	userInfo.ID, err = newAccount.LastInsertId()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("bad ID")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	userInfo.Name = validName
@@ -182,14 +177,12 @@ func register(c *gin.Context) {
 	//Get rid of any weird tables I may or may not be littering the database with.
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + refName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		fmt.Println("Bad drop table")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	_, err = tx.Exec("CREATE TABLE " + refName + " (league INT NOT NULL UNIQUE)")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		fmt.Println("Bad create table")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -197,14 +190,12 @@ func register(c *gin.Context) {
 	invitesName := "invites_" + strconv.FormatInt(userInfo.ID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + invitesName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		fmt.Println("Bad drop table")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	_, err = tx.Exec("CREATE TABLE " + invitesName + " (league INT NOT NULL UNIQUE)")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err})
-		fmt.Println("Bad create table")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -212,13 +203,13 @@ func register(c *gin.Context) {
 	var inviteCount int64
 	row := tx.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE email=?", userInfo.Email)
 	if err = row.Scan(&inviteCount); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//No invites, commit transactions and return userinfo.
 	if inviteCount == 0 {
 		if err = tx.Commit(); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		c.JSON(http.StatusOK, userInfo)
@@ -232,14 +223,14 @@ func register(c *gin.Context) {
 	var leagues []int64
 	rows, err := tx.Query("SELECT league FROM invites_0 WHERE email=?", userInfo.Email)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var leagueID int64
 		if err = rows.Scan(&leagueID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		leagues = append(leagues, leagueID)
@@ -252,21 +243,21 @@ func register(c *gin.Context) {
 			strconv.FormatInt(userInfo.ID, 10)+
 			" (league) VALUES (?)", leagues[i])
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		_, err = tx.Exec("INSERT INTO league_"+
 			strconv.FormatInt(leagues[i], 10)+
 			"_invites (user) VALUES (?)", userInfo.ID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
 		//With that, we can delete the entry in the invits_0 table
 		_, err = tx.Exec("DELETE FROM invites_0 WHERE email=? AND league=?", userInfo.Email, leagues[i])
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -274,7 +265,7 @@ func register(c *gin.Context) {
 		var anonCount int64
 		row := tx.QueryRow("SELECT COUNT(*) FROM invites_0 WHERE league=?", leagues[i])
 		if err = row.Scan(&anonCount); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -283,14 +274,14 @@ func register(c *gin.Context) {
 				strconv.FormatInt(leagues[i], 10)+
 				"_invites WHERE user=?", 0)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//All that done, we want to pass the user ID back as a json response
@@ -310,8 +301,7 @@ func createLeague(c *gin.Context) {
 	var s LeagueInitSettings
 	if err := c.BindJSON(&s); err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Malformed Request"})
-		fmt.Println("Didn't assign values")
+		c.JSON(http.StatusBadRequest, "Malformed Request")
 		return
 	}
 
@@ -319,7 +309,7 @@ func createLeague(c *gin.Context) {
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -327,16 +317,13 @@ func createLeague(c *gin.Context) {
 	//So we haven't hit a problem yet.  Now we need to create a league for our user.
 	newLeague, err := tx.Exec("INSERT INTO league (name, commissioner, maxOwner) VALUES (?,?,?)", s.LeagueName, user, s.MaxOwner)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println(err)
-		fmt.Println("bad Insert")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	leagueID, err := newLeague.LastInsertId()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("bad ID")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//With our ID, we can populate the league's position amongst the other settings tables.  While we
@@ -344,31 +331,31 @@ func createLeague(c *gin.Context) {
 	//to expose all the customization options after the league has been created.  To be continued...
 	_, err = tx.Exec("INSERT INTO draft_settings (ID) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("INSERT INTO positional_settings (ID) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("INSERT INTO scoring_settings_offense (ID) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("INSERT INTO scoring_settings_defense (ID) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("INSERT INTO scoring_settings_special (ID) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -376,41 +363,27 @@ func createLeague(c *gin.Context) {
 	draftName := "draft_" + strconv.FormatInt(leagueID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + draftName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("CREATE TABLE " + draftName + " (ID INT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`ID`))")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-
-	// //Draft order table
-	// draftOrderName := "draft_order_" + strconv.FormatInt(leagueID, 10)
-	// _, err = tx.Exec("DROP TABLE IF EXISTS " + draftOrderName)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-	// 	return
-	// }
-
-	// _, err = tx.Exec("CREATE TABLE " + draftOrderName + " (team INT NOT NULL UNIQUE, spot INT NOT NULL UNIQUE)")
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-	// 	return
-	// }
 
 	//league roster table
 	rosterName := "roster_" + strconv.FormatInt(leagueID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + rosterName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("CREATE TABLE " + rosterName + " (player INT NOT NULL UNIQUE, active BOOL DEFAULT 0, team INT NOT NULL)")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -418,13 +391,13 @@ func createLeague(c *gin.Context) {
 	transactionName := "transactions_" + strconv.FormatInt(leagueID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + transactionName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("CREATE TABLE " + transactionName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL, team INT NOT NULL, source INT NOT NULL, associated INT DEFAULT 0, initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, primary key(`ID`))")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -432,32 +405,32 @@ func createLeague(c *gin.Context) {
 	teamTableName := "teams_" + strconv.FormatInt(leagueID, 10)
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + teamTableName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, slot INT NOT NULL DEFAULT 0, primary key(`ID`))")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//League Invites table
 	leagueInvitesName := "league_" + strconv.FormatInt(leagueID, 10) + "_invites"
 	_, err = tx.Exec("DROP TABLE IF EXISTS " + leagueInvitesName)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	_, err = tx.Exec("CREATE TABLE " + leagueInvitesName + " (user INT NOT NULL)")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//With Team Table created, we need to insert our first team.
 	_, err = tx.Exec("INSERT INTO "+teamTableName+" (name, manager) VALUES (?, ?)", s.TeamName, user)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -465,13 +438,13 @@ func createLeague(c *gin.Context) {
 	userLeagues := "leagues_" + strconv.FormatInt(user, 10)
 	_, err = tx.Exec("INSERT INTO "+userLeagues+" (league) VALUES (?)", leagueID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//commit transaction
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	//After all that, we will pass the league's ID back to the frontend, and then use that to request all our data.  It would be
@@ -486,8 +459,9 @@ func getLeagues(c *gin.Context) {
 	session := sessions.Default(c)
 	db := store.GetDB()
 	type LeagueInfo struct {
-		ID   int64
-		Name string
+		ID           int64
+		Name         string
+		Commissioner string
 	}
 	var leagues []LeagueInfo
 	var invites []LeagueInfo
@@ -495,43 +469,41 @@ func getLeagues(c *gin.Context) {
 	user := session.Get("user").(int64)
 
 	userLeaguesTable := "leagues_" + strconv.FormatInt(user, 10)
-	rows, err := db.Query("SELECT league.ID, league.name FROM " +
+	rows, err := db.Query("SELECT league.ID, league.name, user.name FROM " +
 		userLeaguesTable +
-		" AS lt LEFT JOIN league ON lt.league=league.ID")
+		" AS lt INNER JOIN league ON lt.league=league.ID LEFT JOIN user ON league.commissioner=user.ID")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var ID int64
-		var name string
+		var info LeagueInfo
 		//Cool, we're bringing back some rows
-		if err = rows.Scan(&ID, &name); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		if err = rows.Scan(&info.ID, &info.Name, &info.Commissioner); err != nil {
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
-		leagues = append(leagues, LeagueInfo{ID: ID, Name: name})
+		leagues = append(leagues, info)
 	}
 
 	//Do the exact same thing, but with user invites table.
 	userInvitesTable := "invites_" + strconv.FormatInt(user, 10)
-	rows, err = db.Query("SELECT ID, name FROM " +
+	rows, err = db.Query("SELECT league.ID, league.name, user.name FROM " +
 		userInvitesTable +
-		" AS lt LEFT JOIN league ON lt.league=league.ID")
+		" AS lt INNER JOIN league ON lt.league=league.ID LEFT JOIN user ON league.commissioner=user.ID")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var ID int64
-		var name string
-		if err = rows.Scan(&ID, &name); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		var info LeagueInfo
+		if err = rows.Scan(&info.ID, &info.Name, &info.Commissioner); err != nil {
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
-		invites = append(invites, LeagueInfo{ID: ID, Name: name})
+		invites = append(invites, info)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"leagues": leagues, "invites": invites})
@@ -557,7 +529,7 @@ func LeagueHome(c *gin.Context) {
 	f.ID, err = strconv.ParseInt(c.Param("ID"), 10, 64)
 	//check if number
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -566,7 +538,7 @@ func LeagueHome(c *gin.Context) {
 		user.ID, user.name, user.email FROM league JOIN user ON league.commissioner=user.ID 
 		WHERE league.ID = ?`, c.Param("ID"))
 	if err := row.Scan(&f.Name, &f.State, &f.MaxOwner, &f.Kind, &f.Commissioner.ID, &f.Commissioner.Name, &f.Commissioner.Email); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -584,14 +556,14 @@ func LeagueHome(c *gin.Context) {
 		strconv.FormatInt(f.ID, 10) +
 		" AS t JOIN user ON t.manager=user.ID")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	for rows.Next() {
 		var t TeamInfo
 		if err := rows.Scan(&t.ID, &t.Name, &t.Slot, &t.Manager.ID, &t.Manager.Name, &t.Manager.Email); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		teams = append(teams, t)
@@ -604,7 +576,7 @@ func LeagueHome(c *gin.Context) {
 		}
 	}
 	if !authorized {
-		c.JSON(http.StatusForbidden, gin.H{"error": "User not in league", "ok": false})
+		c.JSON(http.StatusForbidden, "User not in league")
 	}
 
 	//Get Invites (only if league is in INIT state)
@@ -614,14 +586,14 @@ func LeagueHome(c *gin.Context) {
 			strconv.FormatInt(f.ID, 10) +
 			"_invites AS i JOIN user ON i.user=user.ID")
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var a AccountInfo
 			if err := rows.Scan(&a.ID, &a.Name, &a.Email); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 			invites = append(invites, a)
@@ -629,7 +601,7 @@ func LeagueHome(c *gin.Context) {
 
 		rows, err = db.Query("SELECT email FROM invites_0 WHERE league=?", strconv.FormatInt(f.ID, 10))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		defer rows.Close()
@@ -637,7 +609,7 @@ func LeagueHome(c *gin.Context) {
 			var a AccountInfo
 			a.ID = 0
 			if err := rows.Scan(&a.Email); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 			a.Name = a.Email
@@ -663,7 +635,7 @@ func InviteUser(c *gin.Context) {
 	}
 	var v Invite
 	if err := c.BindJSON(&v); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -672,30 +644,28 @@ func InviteUser(c *gin.Context) {
 	var commish int64
 	row := db.QueryRow("SELECT commissioner FROM league WHERE ID=?", v.League)
 	if err := row.Scan(&commish); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	if commish != user {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized to invite", "ok": false})
+		c.JSON(http.StatusBadRequest, "Not Authorized to invite")
 		return
 	}
 
 	//Validate email, just in case something gets by the html validation.
 	validator := strings.Split(v.Invitee, "@")
 	if len(validator) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Email", "ok": false})
-		fmt.Println("Bad Email")
+		c.JSON(http.StatusBadRequest, "Bad Email")
 		return
 	}
-	if len(strings.Split(validator[1], ".")) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Email", "ok": false})
-		fmt.Println("Bad Email")
+	if len(strings.Split(validator[1], ".")) < 2 {
+		c.JSON(http.StatusBadRequest, "Bad Email")
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -720,8 +690,7 @@ func InviteUser(c *gin.Context) {
 				strconv.FormatInt(v.League, 10)+
 				"_invites WHERE user=?", userID)
 			if subErr := subRow.Scan(&exists); subErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": subErr.Error(), "ok": false})
-				fmt.Println("league invites assert db error")
+				c.JSON(http.StatusBadRequest, subErr.Error())
 				return
 			}
 
@@ -732,7 +701,7 @@ func InviteUser(c *gin.Context) {
 					strconv.FormatInt(v.League, 10)+
 					"_invites (user) VALUES (?)", userID)
 				if subErr != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": subErr.Error(), "ok": false})
+					c.JSON(http.StatusBadRequest, subErr.Error())
 					fmt.Println("league invites insert db error")
 					return
 				}
@@ -743,22 +712,21 @@ func InviteUser(c *gin.Context) {
 				v.League,
 				v.Invitee)
 			if subErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": subErr.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, subErr.Error())
 				fmt.Println("invites_0 db error")
 				return
 			}
 
 			//TODO: SEND EMAIL TO GET USER TO REGISTER
 			if subErr = tx.Commit(); subErr != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": subErr.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, subErr.Error())
 			}
 			c.JSON(http.StatusOK, AccountInfo{ID: 0, Name: "Unregistered", Email: v.Invitee})
 			return
 
 		} else {
 			//Any other scan error
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-			fmt.Println("didn't scan")
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -768,7 +736,7 @@ func InviteUser(c *gin.Context) {
 		strconv.FormatInt(v.League, 10)+
 		"_invites (user) VALUES (?)", userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		fmt.Println("league invites db error")
 		return
 	}
@@ -777,13 +745,13 @@ func InviteUser(c *gin.Context) {
 		strconv.FormatInt(userID, 10)+
 		" (league) VALUES (?)", v.League)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		fmt.Println("user invites db error")
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	c.JSON(http.StatusOK, AccountInfo{ID: userID, Name: username, Email: v.Invitee})
@@ -803,13 +771,13 @@ func joinLeague(c *gin.Context) {
 	user := session.Get("user").(int64)
 	if err := c.BindJSON(&t); err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -818,21 +786,19 @@ func joinLeague(c *gin.Context) {
 	var maxOwners int64
 	row := tx.QueryRow("SELECT maxOwner FROM league WHERE ID=?", t.League)
 	if err := row.Scan(&maxOwners); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var ownerCount int64
 	row = tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(t.League, 10))
 	if err := row.Scan(&ownerCount); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//Check if we've already got a full league (This should only happen if a gm invites all slots then shrinks the league)
 	if ownerCount >= maxOwners {
-		c.JSON(http.StatusBadRequest,
-			gin.H{"error": "Max teams in league reached.  Contact commissioner to increase team cap",
-				"ok": false})
+		c.JSON(http.StatusBadRequest, "Max teams in league reached.  Contact commissioner to increase team cap")
 		return
 	}
 
@@ -841,7 +807,7 @@ func joinLeague(c *gin.Context) {
 		strconv.FormatInt(t.League, 10)+
 		" (name, manager) VALUES (?,?)", t.Team, user)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert teams_", "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -850,7 +816,7 @@ func joinLeague(c *gin.Context) {
 		strconv.FormatInt(user, 10)+
 		" (league) VALUES (?)", t.League)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad insert leagues_", "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -859,7 +825,7 @@ func joinLeague(c *gin.Context) {
 		strconv.FormatInt(t.League, 10)+
 		"_invites WHERE user=?", user)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete league_#_invites", "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -867,12 +833,12 @@ func joinLeague(c *gin.Context) {
 		strconv.FormatInt(user, 10)+
 		" WHERE league=?", t.League)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad delete invites", "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	//With all that done, we can return a little thumbs up, and the component will update the league ID.
@@ -893,13 +859,13 @@ func leagueSettings(c *gin.Context) {
 	var s LeagueSettings
 	session := sessions.Default(c)
 	if err := c.BindJSON(&s); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -909,35 +875,35 @@ func leagueSettings(c *gin.Context) {
 	user := session.Get("user").(int64)
 	row := tx.QueryRow("SELECT commissioner FROM league WHERE ID=?", s.ID)
 	if err := row.Scan(&commish); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if user != commish {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unauthorized Edit.", "ok": false})
+		c.JSON(http.StatusBadRequest, "Unauthorized Edit.")
 		return
 	}
 	//Verify new maxOwner is >= current team total.
 	var teamCount int64
 	row = tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(s.ID, 10))
 	if err := row.Scan(&teamCount); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	if s.MaxOwner < teamCount {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Max owners less than current teams in league", "ok": false})
+		c.JSON(http.StatusBadRequest, "Max owners less than current teams in league")
 		return
 	}
 
 	//With that done, we can change the league values.
 	_, err = tx.Exec("UPDATE league SET name=?, maxOwner=?, kind=? WHERE ID=?", s.Name, s.MaxOwner, s.Kind, s.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	c.JSON(http.StatusOK, s)
@@ -953,14 +919,14 @@ func lockLeague(c *gin.Context) {
 	}
 	var b LockLeagueBody
 	if err := c.BindJSON(&b); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//With only a single command, I think we're fine to simply run as is instead of throwing it into a transaction
 	_, err := db.Exec("UPDATE league SET state='PREDRAFT' WHERE ID=?", b.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1128,38 +1094,38 @@ func getDraftSettings(c *gin.Context) {
 	var f FullDraftSettings
 	leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//get those sweet draft settings.
 	row := db.QueryRow("SELECT * FROM draft_settings WHERE ID=?", leagueId)
 	if err = row.Scan(&f.D.ID, &f.D.Kind, &f.D.DraftOrder, &f.D.Time, &f.D.DraftClock, &f.D.Rounds); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM positional_settings WHERE ID=?", leagueId)
 	if err = f.P.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM scoring_settings_offense WHERE ID=?", leagueId)
 	if err = f.S.O.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE ID=?", leagueId)
 	if err = f.S.D.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE ID=?", leagueId)
 	if err = f.S.S.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1171,14 +1137,13 @@ func setDraftSettings(c *gin.Context) {
 	db := store.GetDB()
 	var f FullDraftSettings
 	if err := c.BindJSON(&f); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("Bind issues")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -1191,7 +1156,7 @@ func setDraftSettings(c *gin.Context) {
 		f.P.ID)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1209,7 +1174,7 @@ func setDraftSettings(c *gin.Context) {
 		f.S.O.Fumble, f.S.O.FumbleLost, f.S.O.MiscTouchdown, f.S.O.TwoPointConversion, f.S.O.TwoPointPass,
 		f.S.O.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1223,7 +1188,7 @@ func setDraftSettings(c *gin.Context) {
 		f.S.D.YardBonus, f.S.D.Yards,
 		f.S.D.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1233,7 +1198,7 @@ func setDraftSettings(c *gin.Context) {
 		f.S.S.Fg29, f.S.S.Fg39, f.S.S.Fg49, f.S.S.Fg50, f.S.S.ExtraPoint,
 		f.S.S.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1249,13 +1214,11 @@ func setDraftSettings(c *gin.Context) {
 		f.D.Kind, f.D.DraftOrder, f.D.Time, f.D.DraftClock, rounds,
 		f.D.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("Exec Issues")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-		fmt.Println("commit issues")
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1269,25 +1232,25 @@ func getScoringSettings(c *gin.Context) {
 
 	leagueId, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row := db.QueryRow("SELECT * FROM scoring_settings_offense WHERE ID=?", leagueId)
 	if err = t.O.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM scoring_settings_defense WHERE ID=?", leagueId)
 	if err = t.D.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	row = db.QueryRow("SELECT * FROM scoring_settings_special WHERE ID=?", leagueId)
 	if err = t.S.ScanRow(row); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1346,13 +1309,13 @@ func startDraft(c *gin.Context) {
 	}
 	var b LockLeagueBody
 	if err := c.BindJSON(&b); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer tx.Rollback()
@@ -1363,7 +1326,7 @@ func startDraft(c *gin.Context) {
 	var d []order
 	row := tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(b.ID, 10) + " WHERE slot = 0")
 	if err = row.Scan(&orderCheck); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1374,7 +1337,7 @@ func startDraft(c *gin.Context) {
 		rand.Seed(time.Now().UnixNano())
 		row = tx.QueryRow("SELECT COUNT(*) FROM teams_" + strconv.FormatInt(b.ID, 10))
 		if err = row.Scan(&teamCount); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 
@@ -1389,7 +1352,7 @@ func startDraft(c *gin.Context) {
 
 		rows, err := tx.Query("SELECT id FROM teams_" + strconv.FormatInt(b.ID, 10))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		defer rows.Close()
@@ -1397,7 +1360,7 @@ func startDraft(c *gin.Context) {
 		for rows.Next() {
 			var o order
 			if err = rows.Scan(&o.Team); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 			o.Slot = int64(slots[i])
@@ -1409,7 +1372,7 @@ func startDraft(c *gin.Context) {
 		for _, slot := range d {
 			_, err = tx.Exec("UPDATE teams_"+strconv.FormatInt(b.ID, 10)+" SET slot=? WHERE ID=?", slot.Slot, slot.Team)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 		}
@@ -1418,14 +1381,14 @@ func startDraft(c *gin.Context) {
 		//but for consistency we'll return the draft order whether we need to generate it or not.
 		rows, err := tx.Query("SELECT id, slot FROM teams_" + strconv.FormatInt(b.ID, 10))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var o order
 			if err = rows.Scan(&o.Team, &o.Slot); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
 			d = append(d, o)
@@ -1434,12 +1397,12 @@ func startDraft(c *gin.Context) {
 
 	_, err = tx.Exec("UPDATE league SET state='DRAFT' WHERE ID=?", b.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -1453,13 +1416,13 @@ func DraftPool(c *gin.Context) {
 	var p scanners.PlayerList
 	rows, err := db.Query("SELECT * FROM player")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		if err = p.ScanRow(rows); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -1477,7 +1440,7 @@ func draftHistory(c *gin.Context) {
 
 	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	//var history []draftSlot is nil when unassigned.  We want an empty array if there's
@@ -1485,14 +1448,14 @@ func draftHistory(c *gin.Context) {
 	var history = make([]draftSlot, 0)
 	rows, err := db.Query("SELECT * FROM draft_" + c.Param("ID"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var d draftSlot
 		if err = rows.Scan(&d.Slot, &d.Player, &d.Team); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		history = append(history, d)

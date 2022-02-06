@@ -48,4 +48,9 @@ body {
   text-align: center;
 }
 
+input[type=range] {
+  background-color: #198754;
+  border-radius: 10em;
+}
+
 /*# sourceMappingURL=app.css.map */

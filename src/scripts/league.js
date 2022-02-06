@@ -1,6 +1,6 @@
 'use strict'
 import Draft from './draft.js'
-import { UserContext, NotifyContext } from './util.js'
+import { UserContext, NotifyContext, csrftoken } from './util.js'
 import React, { useState, useEffect, useContext } from 'react'
 // The ultimate layer is the League layer, where a user has specified a specific league
 // and is returned a portal for that league.  From here we can access all the managerial options
@@ -37,33 +37,36 @@ function LeagueHome (props) {
   // Init useEffect.  Since we load from a league ID, we want to populate our league props to determine user's
   // permissions and what state the league is in.
   useEffect(() => {
-    const url = '/league/home/' + props.ID
-    fetch(url, { method: 'GET' })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          setCommissioner(data.league.Commissioner)
-          setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner, kind: data.league.Kind })
-          let count = 0
-          if (data.teams != null) {
-            setTeams(data.teams)
-            count += data.teams.length
-          }
-          if (data.invites != null) {
-            setInvites(data.invites)
-            count += data.invites.length
-          }
-          if (count > data.league.MaxOwner) {
-            setOpenSpots(0)
-          } else {
-            setOpenSpots(data.league.MaxOwner - count)
-          }
-          setLoading(false)
+    const fetchData = async () => {
+      const response = await fetch('/league/home/' + props.ID, { method: 'GET' })
+      const ok = response.ok
+      const data = await response.json()
+
+      if (ok) {
+        let count = 0
+        if (data.teams != null) {
+          setTeams(data.teams)
+          count += data.teams.length
         }
-      })
-      .catch(error => console.error(error))
+        if (data.invites != null) {
+          setInvites(data.invites)
+          count += data.invites.length
+        }
+        if (count > data.league.MaxOwner) {
+          setOpenSpots(0)
+        } else {
+          setOpenSpots(data.league.MaxOwner - count)
+        }
+        setCommissioner(data.league.Commissioner)
+        setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner, kind: data.league.Kind })
+      } else {
+        Notify(data, 0)
+      }
+    }
+
+    fetchData()
+      .catch(error => console.log('fail:', error))
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -84,71 +87,141 @@ function LeagueHome (props) {
 
   function lockLeague (e) {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/lockleague', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      },
-      body: JSON.stringify({ league: leagueProps.ID })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          const newProps = {
-            ID: leagueProps.ID,
-            name: leagueProps.name,
-            state: data.state,
-            maxOwner: leagueProps.maxOwner,
-            kind: leagueProps.kind
-          }
-          setLeagueProps(newProps)
-          Notify('League is now in draft mode, please review settings', 1)
-        }
+    const fetchData = async () => {
+      const response = await fetch('/lockleague', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ league: leagueProps.ID })
       })
-      .catch(error => console.error(error))
+      const ok = response.ok
+      const data = await response.json()
+
+      if (ok) {
+        const newProps = {
+          ID: leagueProps.ID,
+          name: leagueProps.name,
+          state: data.state,
+          maxOwner: leagueProps.maxOwner,
+          kind: leagueProps.kind
+        }
+        setLeagueProps(newProps)
+        Notify('League is now in draft mode, please review settings', 1)
+      } else {
+        Notify(data, 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.log(error))
   }
+
+  // function lockLeague (e) {
+  //   e.preventDefault()
+  //   const csrftoken = document.getElementById('CSRFToken').textContent
+  //   fetch('/lockleague', {
+  //     method: 'POST',
+  //     headers: {
+  //       'X-CSRF-TOKEN': csrftoken,
+  //       'Content-Type': 'Application/json'
+  //     },
+  //     body: JSON.stringify({ league: leagueProps.ID })
+  //   })
+  //     .then(response => response.json())
+  //     .then(data => {
+  //       if (!data.ok) {
+  //         Notify(data.error, 0)
+  //       } else {
+  //         const newProps = {
+  //           ID: leagueProps.ID,
+  //           name: leagueProps.name,
+  //           state: data.state,
+  //           maxOwner: leagueProps.maxOwner,
+  //           kind: leagueProps.kind
+  //         }
+  //         setLeagueProps(newProps)
+  //         Notify('League is now in draft mode, please review settings', 1)
+  //       }
+  //     })
+  //     .catch(error => console.error(error))
+  // }
 
   function startDraft (e) {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/startdraft', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      },
-      body: JSON.stringify({ league: leagueProps.ID })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          // Update league state
-          const newProps = {
-            ID: leagueProps.ID,
-            name: leagueProps.name,
-            state: 'DRAFT',
-            maxOwner: leagueProps.maxOwner,
-            kind: leagueProps.kind
-          }
-          setLeagueProps(newProps)
-          // Update team draft order
-          const updateTeams = [...teams]
-          data.forEach(slot => {
-            const index = updateTeams.findIndex(t => t.ID === slot.Team)
-            updateTeams[index].Slot = slot.Slot
-          })
-          setTeams(updateTeams)
-          Notify('Draft has begun!', 1)
-        }
+    const fetchData = async () => {
+      const response = fetch('/startdraft', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ league: leagueProps.ID })
       })
+      const data = await response.json()
+
+      if (response.ok) {
+        // Update league state
+        const newProps = {
+          ID: leagueProps.ID,
+          name: leagueProps.name,
+          state: 'DRAFT',
+          maxOwner: leagueProps.maxOwner,
+          kind: leagueProps.kind
+        }
+        setLeagueProps(newProps)
+        // Update team draft order
+        const updateTeams = [...teams]
+        data.forEach(slot => {
+          const index = updateTeams.findIndex(t => t.ID === slot.Team)
+          updateTeams[index].Slot = slot.Slot
+        })
+        setTeams(updateTeams)
+        Notify('Draft has begun!', 1)
+      } else {
+        Notify(data, 0)
+      }
+    }
+    fetchData()
       .catch(error => console.error(error))
   }
+
+  // function startDraft (e) {
+  //   e.preventDefault()
+  //   fetch('/startdraft', {
+  //     method: 'POST',
+  //     headers: {
+  //       'X-CSRF-TOKEN': csrftoken,
+  //       'Content-Type': 'Application/json'
+  //     },
+  //     body: JSON.stringify({ league: leagueProps.ID })
+  //   })
+  //     .then(response => response.json())
+  //     .then(data => {
+  //       if (!data.ok) {
+  //         Notify(data.error, 0)
+  //       } else {
+  //         // Update league state
+  //         const newProps = {
+  //           ID: leagueProps.ID,
+  //           name: leagueProps.name,
+  //           state: 'DRAFT',
+  //           maxOwner: leagueProps.maxOwner,
+  //           kind: leagueProps.kind
+  //         }
+  //         setLeagueProps(newProps)
+  //         // Update team draft order
+  //         const updateTeams = [...teams]
+  //         data.forEach(slot => {
+  //           const index = updateTeams.findIndex(t => t.ID === slot.Team)
+  //           updateTeams[index].Slot = slot.Slot
+  //         })
+  //         setTeams(updateTeams)
+  //         Notify('Draft has begun!', 1)
+  //       }
+  //     })
+  //     .catch(error => console.error(error))
+  // }
 
   if (loading) {
     return <div>loading...</div>
@@ -161,12 +234,16 @@ function LeagueHome (props) {
       return (
                 <div>
                     <button className='btn-close btn-close' onClick={closeLeague}></button>
-                    Welcome!
-                    <h1>{leagueProps.name}</h1>
+                    <h1>{leagueProps.name} League Page</h1>
+                    <h2>League Invitations</h2>
+                    <h3>Teams Confirmed</h3>
                     {teams.map(team => <TeamBox key={team.ID + '_team'} team={team} />)}
+                    <h3>Users Invited</h3>
                     {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={'invite_' + i} invite={invite} /> : '')}
+                    {openSpots.length > 0 ? <h3>You have {openSpots.length} slot{openSpots.length > 1 ? 's' : ''} open</h3> : ''}
                     {[...Array(openSpots)].map((x, i) => <InviteBox key={'anon_invite_' + i} invite={null} commissioner={commissioner} league={leagueProps.ID} />)}
                     {openSpots === 0 && User.ID === commissioner.ID ? <button onClick={lockLeague}>Lock League</button> : ''}
+                    <h3>Review League Settings</h3>
                     <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps} />
                 </div>
       )
@@ -212,24 +289,44 @@ function InviteBox (props) {
       Notify("Non-Commissioners can't invite users to league.", 0)
       return null
     }
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/invite', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      },
-      body: JSON.stringify({ invitee: invitee, league: props.league })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          setCompleteInvite(data)
-        }
+    const fetchData = async () => {
+      const response = await fetch('/invite', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ invitee: invitee, league: props.league })
       })
+      const data = await response.json()
+
+      if (response.ok) {
+        setCompleteInvite(data)
+      } else {
+        Notify(data, 0)
+      }
+    }
+
+    fetchData()
       .catch(error => console.error(error))
+
+    // fetch('/invite', {
+    //   method: 'POST',
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/json'
+    //   },
+    //   body: JSON.stringify({ invitee: invitee, league: props.league })
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     if (!data.ok) {
+    //       Notify(data.error, 0)
+    //     } else {
+    //       setCompleteInvite(data)
+    //     }
+    //   })
+    //   .catch(error => console.error(error))
   }
 
   useEffect(() => {
@@ -290,32 +387,60 @@ function LeagueSettings (props) {
   function submit (e) {
     e.preventDefault()
     const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/leaguesettings', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      },
-      body: JSON.stringify({ league: props.league.ID, name: leagueName, maxOwner: maxOwner, kind: kind })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          setMaxOwner(data.maxOwner)
-          setLeagueName(data.name)
-          props.setLeague({
-            ID: props.league.ID,
-            name: data.name,
-            state: props.league.state,
-            maxOwner: data.maxOwner,
-            kind: data.league.kind
-          })
-          Notify('New Settings Saved', 1)
-        }
+    const fetchData = async () => {
+      const response = await fetch('/leaguesettings', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ league: props.league.ID, name: leagueName, maxOwner: maxOwner, kind: kind })
       })
+      const data = await response.json()
+      if (response.ok) {
+        setMaxOwner(data.maxOwner)
+        setLeagueName(data.name)
+        props.setLeague({
+          ID: props.league.ID,
+          name: data.name,
+          state: props.league.state,
+          maxOwner: data.maxOwner,
+          kind: data.league.kind
+        })
+        Notify('New Settings Saved', 1)
+      } else {
+        Notify(data, 0)
+      }
+    }
+
+    fetchData()
       .catch(error => console.error(error))
+    // fetch('/leaguesettings', {
+    //   method: 'POST',
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/json'
+    //   },
+    //   body: JSON.stringify({ league: props.league.ID, name: leagueName, maxOwner: maxOwner, kind: kind })
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     if (!data.ok) {
+    //       Notify(data.error, 0)
+    //     } else {
+    //       setMaxOwner(data.maxOwner)
+    //       setLeagueName(data.name)
+    //       props.setLeague({
+    //         ID: props.league.ID,
+    //         name: data.name,
+    //         state: props.league.state,
+    //         maxOwner: data.maxOwner,
+    //         kind: data.league.kind
+    //       })
+    //       Notify('New Settings Saved', 1)
+    //     }
+    //   })
+    //   .catch(error => console.error(error))
   }
 
   if (loading) {
@@ -326,7 +451,6 @@ function LeagueSettings (props) {
     )
   }
 
-  // Commish view. Max at 16?  why not?
   return (
         <div>
             <h1>League Settings</h1>
@@ -370,13 +494,27 @@ function DraftSettings (props) {
   // And we need to identify our keys for draft and positional.
 
   useEffect(() => {
-    const url = '/league/settings/getdraft/' + props.league
-    fetch(url, { method: 'GET' })
-      .then(response => response.json())
-      .then(data => {
+    const fetchData = async () => {
+      const url = '/league/settings/getdraft/' + props.league
+      const response = await fetch(url, { method: 'GET' })
+      const data = await response.json()
+
+      if (response.ok) {
         setSettings(data)
-      })
+      } else {
+        Notify('Bad Request', 0)
+      }
+    }
+
+    fetchData()
       .catch(error => console.error(error))
+    // const url = '/league/settings/getdraft/' + props.league
+    // fetch(url, { method: 'GET' })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     setSettings(data)
+    //   })
+    //   .catch(error => console.error(error))
   }, [])
 
   useEffect(() => {
@@ -422,24 +560,43 @@ function DraftSettings (props) {
 
   function submit (e) {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/league/settings/setdraft/' + props.league, {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      },
-      body: JSON.stringify(settings)
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok != false) {
-          Notify('Draft Settings Saved', 1)
-        } else {
-          Notify('Save failed due to: ' + data.error, 0)
-        }
+    const fetchData = async () => {
+      const response = await fetch('/league/settings/setdraft/' + props.league, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify(settings)
       })
+      const data = await response.json()
+
+      if (response.ok) {
+        Notify('Draft Settings Saved', 1)
+      } else {
+        Notify('Save failed due to: ' + data, 0)
+      }
+    }
+
+    fetchData()
       .catch(error => console.error(error))
+    // fetch('/league/settings/setdraft/' + props.league, {
+    //   method: 'POST',
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/json'
+    //   },
+    //   body: JSON.stringify(settings)
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     if (data.ok) {
+    //       Notify('Draft Settings Saved', 1)
+    //     } else {
+    //       Notify('Save failed due to: ' + data.error, 0)
+    //     }
+    //   })
+    //   .catch(error => console.error(error))
   }
 
   function findInputType (key) {

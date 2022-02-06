@@ -53,11 +53,11 @@ function App () {
             <React.StrictMode>
             <UserContext.Provider value={user}>
                 <NotifyContext.Provider value={notify}>
-                    <div className="container">
+                    <div className="container" style={{ minHeight: '100vh' }}>
                         <Header />
                         <Notify note={notification} onClick={clearNote} />
                         {user.ID === 0 // Guest view or lobby
-                          ? <LoginController onRegister={handleUserChange} />
+                          ? <UnregisteredLobby handleUserChange={handleUserChange} />
                           : <Lobby />}
                     </div>
                 </NotifyContext.Provider>
@@ -65,6 +65,28 @@ function App () {
             </React.StrictMode>
     )
   }
+}
+
+// Explains FantasyDraft and houses LoginController
+function UnregisteredLobby (props) {
+  return (
+    <div className='row' >
+      <h1 className='display-1 text-center'>FantasyDraft</h1>
+      <h2 className='display-2 text-center'>Fantasy Football Filtered for Fluff</h2>
+      <div className='col'>
+        <p><strong>FantasyDraft</strong> allows you to</p>
+        <ul>
+          <li>Create Fantasy Football Leagues</li>
+          <li>Invite your friends to compete across an NFL season</li>
+          <li>Build a fantasy football team featuring NFL players through a live draft</li>
+        </ul>
+        <p>Create an account and start your league today!</p>
+      </div>
+      <div className='col'>
+        <LoginController onRegister={props.handleUserChange} />
+      </div>
+    </div>
+  )
 }
 
 ReactDOM.render(

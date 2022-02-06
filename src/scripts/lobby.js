@@ -1,56 +1,66 @@
 'use strict'
 import LeagueHome from './league.js'
-import { NotifyContext } from './util.js'
+import Notify, { NotifyContext, UserContext, csrftoken } from './util.js'
 import React, { useState, useEffect, useContext } from 'react'
+
 // The Lobby layer is where we want to house the general user interface.  While Lobby's main purpose is to funnel a user
 // to a specific League, features like user settings (dark mode?) and general account messaging (Likely a bot to send messages
 // informing users of invites to leagues) are a good fit for this layer.  While we're focusing primarily on a single type of
 // fantasy sport, this would also be a good place to allow users to toggle between different sports offerings.
-function Lobby (props) {
-  const [focus, setFocus] = useState('')
+function Lobby () {
   const [leagueID, setLeagueID] = useState(0)
-
-  // Reset focus when leagueID changes.
-  useEffect(() => {
-    setFocus('')
-  }, [leagueID])
+  const User = useContext(UserContext)
 
   if (leagueID !== 0) {
     return (
-            <div className='container'>
-                <LeagueHome openLeague={setLeagueID} ID={leagueID} />
-            </div>
+      <div className='container'>
+        <LeagueHome openLeague={setLeagueID} ID={leagueID} />
+      </div>
     )
   }
-  // Barf me a river.  This will hold for two items, but I'll need something better if we want more than two choices.
-  // should also aim for a way to hide the object as opposed to removing it as we shift focus.  leagues is a cheap query,
-  // but no reason we should redo it each time we shift focus.
+
   return (
-        <div className='container'>
-            {focus === 'wizard' ? '' : <LeagueDirectory inFocus={setFocus} openLeague={setLeagueID} />}
-            {focus === 'directory' ? '' : <LeagueWizard inFocus={setFocus} openLeague={setLeagueID} />}
-        </div>
+    <div className='row text-center'>
+      <h1 className='display-1 text-capitalize'>{User.name} Dashboard</h1>
+      <div className='row'>
+        <LeagueWizard openLeague={setLeagueID} />
+      </div>
+      <div className='row'>
+        <h2 className='display-2'>Active Leagues</h2>
+        <LeagueDirectory openLeague={setLeagueID} />
+      </div>
+    </div>
   )
 }
 
 function LeagueDirectory (props) {
-  const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [leagues, setLeagues] = useState([])
   const [invites, setInvites] = useState([])
   const [activeLeagues, setActiveLeagues] = useState([])
   const [activeView, setActiveView] = useState(true)
 
-  function toggleFocus (e) {
-    e.preventDefault()
-    if (!open) {
-      setOpen(true)
-      props.inFocus('directory')
-    } else {
-      setOpen(false)
-      props.inFocus('')
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch('/leagues', { method: 'GET' })
+      const data = await response.json()
+
+      if (data.leagues !== null) {
+        const tmp = data.leagues.map(l => l)
+        setActiveLeagues(tmp)
+        setLeagues(tmp)
+      }
+      if (data.invites !== null) {
+        const tmp = data.invites.map(l => l)
+        setInvites(tmp)
+      }
     }
-  }
+
+    fetchData()
+      .catch(error => console.log('fail:', error))
+
+    setLoading(false)
+  }, [])
 
   // Sometimes you just have to toggle a toggle
   function activeToggle () {
@@ -63,61 +73,33 @@ function LeagueDirectory (props) {
     }
   }
 
-  useEffect(() => {
-    const url = '/leagues'
-    fetch(url, { method: 'GET' })
-      .then(response => response.json())
-      .then(data => {
-        if (data.leagues !== null) {
-          const tmp = data.leagues.map(l => l)
-          setActiveLeagues(tmp)
-          setLeagues(tmp)
-        }
-        if (data.invites !== null) {
-          const tmp = data.invites.map(l => l)
-          setInvites(tmp)
-        }
-        setLoading(false)
-      })
-      .catch(error => console.log('fail:', error))
-  }, [])
-
-  if (!open) {
-    return (
-            <div>
-                <button onClick={toggleFocus}>Select a League</button>
-            </div>
-    )
-  }
-
   if (loading) {
     return (
-            <div>loading...</div>
+      <div>loading...</div>
     )
   }
 
   return (
-        <div>
-            <button className='btn-close btn-close' onClick={toggleFocus}></button>
-            <div>
-                {activeView
-                  ? <div>
-                        <div className='btn-group' role='group' aria-label='Active/Completed draft toggle'>
-                            <button className='btn btn-dark btn-sm' disabled>Leagues</button>
-                            <button className='btn btn-warning btn-sm' onClick={activeToggle}>Invites</button>
-                        </div>
-                        <ActiveLeagues leagues={leagues} openLeague={props.openLeague} />
-                    </div>
-                  : <div>
-                        <div className='btn-group' role='group'>
-                            <button className='btn btn-warning btn-sm' onClick={activeToggle}>Leagues</button>
-                            <button className='btn btn-dark btn-sm' disabled>Invites</button>
-                        </div>
-                        <Invitations leagues={leagues} openLeague={props.openLeague} />
-                    </div>
-                }
+    <div>
+      <div>
+        {activeView
+          ? <div className='row d-grid'>
+              <div className='btn-group' role='group' aria-label='Active/Completed draft toggle'>
+                <button className='btn btn-dark' disabled>Leagues</button>
+                <button className='btn btn-warning' onClick={activeToggle}>Invites</button>
+              </div>
+              <ActiveLeagues leagues={leagues} openLeague={props.openLeague} />
             </div>
-        </div>
+          : <div className='row d-grid'>
+              <div className='btn-group' role='group'>
+                <button className='btn btn-warning' onClick={activeToggle}>Leagues</button>
+                <button className='btn btn-dark' disabled>Invites</button>
+              </div>
+              <Invitations leagues={leagues} openLeague={props.openLeague} />
+            </div>
+        }
+      </div>
+    </div>
   )
 }
 
@@ -128,13 +110,20 @@ function ActiveLeagues (props) {
   }
 
   return (
-        <div>
+        <table className='table text-center'>
+          <thead>
+          <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
+              </thead>
+          <tbody>
             {props.leagues.map(league =>
-                <div key={'active_' + league.ID}>
-                    <button id={league.ID} onClick={openLeague}> Go to {league.Name}</button>
-                </div>
+                <tr key={'active_' + league.ID}>
+                  <td colSpan={2} className='text-center'>{league.Name}</td>
+                  <td colSpan={2}>{league.Commissioner}</td>
+                  <td colSpan={1}><button className='btn btn-success btn-sm' id={league.ID} onClick={openLeague}> Rejoin!</button></td>
+                </tr>
             )}
-        </div>
+          </tbody>
+        </table>
   )
 }
 
@@ -153,13 +142,20 @@ function Invitations (props) {
 
   if (selection === 0) {
     return (
-            <div>
+            <table className='table text-center'>
+              <thead>
+                <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
+              </thead>
+              <tbody>
                 {props.leagues.map(league =>
-                    <div key={'leagues_' + league.ID}>
-                        <button id={league.ID} onClick={selectInvite}>Join League {league.Name}</button>
-                    </div>
+                    <tr key={'leagues_' + league.ID}>
+                        <td colSpan={2}>{league.Name}</td>
+                        <td colSpan={2}>{league.Commissioner}</td>
+                        <td colSpan={1}><button className='btn btn-success btn-sm' id={league.ID} onClick={selectInvite}>Join!</button></td>
+                    </tr>
                 )}
-            </div>
+              </tbody>
+            </table>
     )
   }
 
@@ -182,10 +178,8 @@ function LeagueWizard (props) {
     e.preventDefault()
     if (!open) {
       setOpen(true)
-      props.inFocus('wizard')
     } else {
       setOpen(false)
-      props.inFocus('')
     }
   }
 
@@ -209,42 +203,65 @@ function LeagueWizard (props) {
   // Where we can use those properties to create a league layer.
   function createLeague (e) {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/createleague', {
-      method: 'POST',
-      body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/JSON'
-      }
-    })
-      .then(response => response.json())
-    // data will carry our league's ID and the list of teams in order of their first round draft position.
-      .then(data => {
-        props.openLeague(data.leagueID)
+    const fetchData = async () => {
+      const response = await fetch('/createleague', {
+        method: 'POST',
+        body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/JSON'
+        }
       })
-      .catch(error => console.log('fail:', error))
+      const data = response.json()
+
+      if (response.ok) {
+        props.openLeague(data.leagueID)
+      } else {
+        Notify('Draft Creation Unsuccessful', 0)
+      }
+    }
+
+    fetchData()
+      .catch(error => console.error(error))
+    // fetch('/createleague', {
+    //   method: 'POST',
+    //   body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/JSON'
+    //   }
+    // })
+    //   .then(response => response.json())
+    // // data will carry our league's ID and the list of teams in order of their first round draft position.
+    //   .then(data => {
+    //     props.openLeague(data.leagueID)
+    //   })
+    //   .catch(error => console.log('fail:', error))
   }
 
   if (!open) {
     return (
             <div>
-                <button onClick={toggleFocus}>Create a League</button>
+                <button className='btn btn-success' onClick={toggleFocus}>Create a New League</button>
             </div>
     )
   }
   return (
-        <div>
-            <button className='btn-close btn-close' onClick={toggleFocus}></button>
-            <h3>Create a League!</h3>
-            <form onSubmit={createLeague}>
-                <input className='form-range' onChange={handleMaxOwner} type='range' min='1' max='14' value={maxOwner}></input>
-                <p>Teams: </p><h3>{maxOwner}</h3>
-                <input type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required></input>
-                <input type='text' className='form-control' onChange={handleLeagueName} placeholder='Name Your League!' required></input>
-                <button className='btn btn-success' type='submit'> Start Draft! </button>
-            </form>
-        </div>
+    <div>
+      <div className='d-flex justify-content-end'>
+        <button className='btn-close btn-close' onClick={toggleFocus}></button>
+      </div>
+      <h2 className='display-2'>Create a League!</h2>
+      <form onSubmit={createLeague}>
+        <label htmlFor='leagueName' className='display-6'>Name Your League</label>
+        <input name="leagueName"type='text' className='form-control' onChange={handleLeagueName} placeholder='Name Your League!' required></input>
+        <label htmlFor='teams' className='display-6'>Teams: {maxOwner}</label>
+        <input name="teams" className='form-range' onChange={handleMaxOwner} type='range' min='1' max='14' value={maxOwner}></input>
+        <label htmlFor='teamName' className='display-6'>Name Your Team</label>
+        <input name="teamName" type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required></input>
+        <button className='btn btn-success' type='submit'> Start Draft! </button>
+      </form>
+    </div>
   )
 }
 
@@ -265,31 +282,50 @@ function TeamWizard (props) {
 
   function submit (e) {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    fetch('/joinleague', {
-      method: 'POST',
-      body: JSON.stringify({ league: props.league, team: teamName }),
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/JSON'
-      }
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok == false) {
-          Notify(data.error, 0)
-        } else {
-          props.openLeague(props.league)
+    const fetchData = async () => {
+      const response = await fetch('/joinleague', {
+        method: 'POST',
+        body: JSON.stringify({ league: props.league, team: teamName }),
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/JSON'
         }
       })
-      .catch(error => console.log(error))
+      const data = await response.json()
+
+      if (response.ok) {
+        props.openLeague(props.league)
+      } else {
+        Notify(data.error, 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.error(error))
+
+    // fetch('/joinleague', {
+    //   method: 'POST',
+    //   body: JSON.stringify({ league: props.league, team: teamName }),
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/JSON'
+    //   }
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     if (data.ok == false) {
+    //       Notify(data.error, 0)
+    //     } else {
+    //       props.openLeague(props.league)
+    //     }
+    //   })
+    //   .catch(error => console.log(error))
   }
 
   return (
         <form onSubmit={submit}>
             <button onClick={close}>X</button>
             <input type="text" onChange={handleChange} placeholder="Team Name" required></input>
-            <button type="submit"></button>
+            <button type="submit">Name Team</button>
         </form>
   )
 }

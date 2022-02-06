@@ -1,6 +1,6 @@
 'use strict'
 import React, { useState, useContext } from 'react'
-import { NotifyContext } from './util.js'
+import { NotifyContext, csrftoken } from './util.js'
 
 function LoginForm (props) {
   const [username, setUsername] = useState('')
@@ -10,30 +10,51 @@ function LoginForm (props) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const csrftoken = document.getElementById('CSRFToken').textContent
     const userData = { username: username, password: password }
-    fetch('/login', {
-      credentials: 'include',
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/JSON'
-      }
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log('success:', data)
-        // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
-        if (data.ok !== false) {
-          const userObj = { ID: data.ID, name: data.name, email: data.email }
-          props.onLogin(userObj)
-        } else {
-          Notify(data.error, 0)
-          console.error(data.error)
+    const fetchData = async () => {
+      const response = await fetch('/login', {
+        credentials: 'include',
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/JSON'
         }
       })
-      .catch(error => { console.error('fail:', error) })
+      const data = await response.json()
+
+      if (response.ok) {
+        const userObj = { ID: data.ID, name: data.name, email: data.email }
+        props.onLogin(userObj)
+      } else {
+        Notify(data, 0)
+      }
+    }
+
+    fetchData()
+      .catch(error => console.error(error))
+    // fetch('/login', {
+    //   credentials: 'include',
+    //   method: 'POST',
+    //   body: JSON.stringify(userData),
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/JSON'
+    //   }
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     console.log('success:', data)
+    //     // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
+    //     if (data.ok !== false) {
+    //       const userObj = { ID: data.ID, name: data.name, email: data.email }
+    //       props.onLogin(userObj)
+    //     } else {
+    //       Notify(data.error, 0)
+    //       console.error(data.error)
+    //     }
+    //   })
+    //   .catch(error => { console.error('fail:', error) })
   }
 
   const handleChange = (e) => {
@@ -87,29 +108,49 @@ function RegisterForm (props) {
     e.preventDefault()
     if (password !== confirm) {
       Notify('Password and Password confirmation do not match!', 0)
+      return null
     }
-    const csrftoken = document.getElementById('CSRFToken').textContent
-    const userData = { username: username, password: password, email: email }
-    fetch('/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: {
-        'X-CSRF-TOKEN': csrftoken,
-        'Content-Type': 'Application/json'
-      }
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.ok !== false) {
-          const userObj = { ID: data.ID, name: data.name, email: data.email }
-          props.onRegister(userObj)
-        } else {
-          console.error(data.error)
-          Notify(data.error, 0)
+    const fetchData = async () => {
+      const userData = { username: username, password: password, email: email }
+      const response = await fetch('/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
         }
       })
-      .catch(error => { console.error('fail:', error) })
-    return false
+      const data = response.json()
+
+      if (response.ok) {
+        const userObj = { ID: data.ID, name: data.name, email: data.email }
+        props.onRegister(userObj)
+      } else {
+        Notify(data, 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.error(error))
+    // fetch('/register', {
+    //   method: 'POST',
+    //   body: JSON.stringify(userData),
+    //   headers: {
+    //     'X-CSRF-TOKEN': csrftoken,
+    //     'Content-Type': 'Application/json'
+    //   }
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     if (data.ok !== false) {
+    //       const userObj = { ID: data.ID, name: data.name, email: data.email }
+    //       props.onRegister(userObj)
+    //     } else {
+    //       console.error(data.error)
+    //       Notify(data.error, 0)
+    //     }
+    //   })
+    //   .catch(error => { console.error('fail:', error) })
+    // return false
   }
 
   return (
@@ -187,12 +228,12 @@ function LoginController (props) {
   return (
         <div className='row'>
             <div className='col'>
-                <h6 className='display-6'>New User?</h6>
+                <h3>New User?</h3>
                 <RegisterButton
                     onClick={toggleRegister} />
             </div>
             <div className='col'>
-                <h6 className='display-6'>Back Again?</h6>
+                <h3 >Back Again?</h3>
                 <LoginButton
                     onClick={toggleLoginStatus} />
             </div>

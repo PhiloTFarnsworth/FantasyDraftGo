@@ -23,7 +23,6 @@ function Draft (props) {
   useEffect(() => {
     fetchDraftHistory()
     fetchDraftPool()
-
     // So we're going to use a websocket to update the draft as it progresses.
     draftSocket.current = new WebSocket(
       'ws://' +
@@ -35,15 +34,15 @@ function Draft (props) {
     )
   }, [])
 
-  // the first rule of building something is getting it to work.  For now, we check if draftpool and
-  // drafthistory have been set, then we'll render the draft
+  // // the first rule of building something is getting it to work.  For now, we check if draftpool and
+  // // drafthistory have been set, then we'll render the draft
   useEffect(() => {
     if (draftPool.length > 0 && draftHistory.length > 0) {
       setLoading(false)
     }
   }, [draftPool, draftHistory])
 
-  // Finally we need to trim the draft pool?  This is gonna need a think.
+  // // Finally we need to trim the draft pool?  This is gonna need a think.
   useEffect(() => {
     // remove drafted players from draft pool
     const pool = [...availablePlayers]
@@ -125,9 +124,11 @@ function Draft (props) {
   // a draft class preview before a draft, as well as an accessible draft history after the draft.
 
   function fetchDraftHistory () {
-    fetch('/league/draft/' + props.league.ID, { method: 'GET' })
-      .then(response => response.json())
-      .then(data => {
+    const fetchData = async () => {
+      const response = await fetch('/league/draft/' + props.league.ID, { method: 'GET' })
+      const data = await response.json()
+
+      if (response.ok) {
         const history = data.map(p => p)
         setCurrentPick(history.length)
         // We'll pass an empty or incomplete list of picks.  We want to then expand the array
@@ -146,14 +147,43 @@ function Draft (props) {
           }
         }
         setDraftHistory(history)
-      })
+      } else {
+        Notify('Failed to fetch history', 0)
+      }
+    }
+    fetchData()
       .catch(error => console.error(error))
+    // fetch('/league/draft/' + props.league.ID, { method: 'GET' })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     const history = data.map(p => p)
+    //     setCurrentPick(history.length)
+    //     // We'll pass an empty or incomplete list of picks.  We want to then expand the array
+    //     // to hold all potential picks in the future.
+    //     if (history.length !== ROUNDS * props.teams.length) {
+    //       const snakeFirst = [...props.teams].sort((a, b) => a.Slot - b.Slot)
+    //       const snakeSecond = [...props.teams].sort((a, b) => b.Slot - a.Slot)
+    //       const draftLength = ROUNDS * props.teams.length
+    //       for (let i = history.length; i < draftLength; i++) {
+    //         const roundPick = i % props.teams.length
+    //         if (Math.floor(i / props.teams.length) % 2 === 0) {
+    //           history.push({ Player: null, Slot: i, Team: snakeFirst[roundPick].ID })
+    //         } else {
+    //           history.push({ Player: null, Slot: i, Team: snakeSecond[roundPick].ID })
+    //         }
+    //       }
+    //     }
+    //     setDraftHistory(history)
+    //   })
+    //   .catch(error => console.error(error))
   }
 
   function fetchDraftPool () {
-    fetch('/draftpool', { method: 'GET' })
-      .then(response => response.json())
-      .then(data => {
+    const fetchData = async () => {
+      const response = await fetch('/draftpool', { method: 'GET' })
+      const data = await response.json()
+
+      if (response.ok) {
         const draftClass = []
         const headers = []
         for (let i = 0; i < data.Players.length; i++) {
@@ -199,8 +229,62 @@ function Draft (props) {
         setStatHeaders(headers)
         setAvailablePlayers(availPlayers)
         setDraftPool(draftClass)
-      })
-      .catch(error => Notify(error, 0))
+      } else {
+        Notify('Failed to fetch players', 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.error(error))
+    // fetch('/draftpool', { method: 'GET' })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     const draftClass = []
+    //     const headers = []
+    //     for (let i = 0; i < data.Players.length; i++) {
+    //       draftClass.push(data.Players[i])
+    //       if (i === 0) {
+    //         const rawHeaders = Object.keys(data.Players[i])
+    //         for (let j = 0; j < rawHeaders.length; j++) {
+    //           // We store our headers as their verbose names, but it would be useful to carry an
+    //           // abbreviation along with the full name.  Our database structure is a little different
+    //           // from our python implementation (mostly trying to find a sweet spot on how verbose to
+    //           // be in the database + the different rules for marshalling objects into json).
+    //           let abbreviation = ''
+    //           let verbose = ''
+    //           const indices = []
+    //           for (let k = 0; k < rawHeaders[j].length; k++) {
+    //             // Not a huge fan of this, but it will work for english.
+    //             if (rawHeaders[j].charAt(k) === rawHeaders[j].charAt(k).toUpperCase()) {
+    //               abbreviation = abbreviation.concat(rawHeaders[j].charAt(k))
+    //               indices.push(k)
+    //             }
+    //           }
+
+    //           if (indices.length === rawHeaders[j].length) {
+    //             // ID is an example, though we won't expose that to users.
+    //             verbose = rawHeaders[j]
+    //           } else {
+    //             // split on our capital letter indices, adding a space before them to make our verbose strings
+    //             // more readable.
+    //             for (let k = 0; k < indices.length; k++) {
+    //               if (k + 1 < indices.length) {
+    //                 verbose = verbose.concat(rawHeaders[j].slice(indices[k], indices[k + 1]), ' ')
+    //               } else {
+    //                 // slice k to end
+    //                 verbose = verbose.concat(rawHeaders[j].slice(indices[k]))
+    //               }
+    //             }
+    //           }
+    //           headers.push({ verbose: verbose, abbreviation: abbreviation, raw: rawHeaders[j] })
+    //         }
+    //       }
+    //     }
+    //     const availPlayers = draftClass.map(p => p.ID)
+    //     setStatHeaders(headers)
+    //     setAvailablePlayers(availPlayers)
+    //     setDraftPool(draftClass)
+    //   })
+    //   .catch(error => Notify(error, 0))
   }
 
   function submitChat (e) {
