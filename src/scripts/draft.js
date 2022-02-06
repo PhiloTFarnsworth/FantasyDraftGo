@@ -352,7 +352,7 @@ function DraftPool (props) {
 
   const HandleFocus = (e) => {
     e.preventDefault()
-    const chosen = props.players.find(player => player.ID === e.target.parentElement.id)
+    const chosen = props.players.find(player => player.ID === parseInt(e.target.parentElement.id))
     props.shiftFocus({ context: 'player', focusable: chosen })
   }
 
@@ -563,7 +563,7 @@ function DraftSummary (props) {
 
   const teamFocus = (e) => {
     e.preventDefault()
-    const chosen = props.teams.find(t => t.ID === e.currentTarget.attributes.team.value)
+    const chosen = props.teams.find(t => t.ID === parseInt(e.currentTarget.attributes.team.value))
     props.shiftFocus({ context: 'team', focusable: chosen })
   }
 
@@ -624,7 +624,7 @@ function PBio (props) {
 
   const handleSelection = (e) => {
     e.preventDefault()
-    const playerID = Number.parseInt(e.target.id, 10)
+    const playerID = parseInt(e.target.id, 10)
     props.selectPlayer(playerID)
   }
 
@@ -833,7 +833,7 @@ function DraftOrder (props) {
 
   function HandleFocus (e) {
     e.preventDefault()
-    const chosen = props.teams.find(t => t.ID === e.currentTarget.attributes.team.value)
+    const chosen = props.teams.find(t => t.ID === parseInt(e.currentTarget.attributes.team.value))
     props.shiftFocus({ context: 'team', focusable: chosen })
   }
 

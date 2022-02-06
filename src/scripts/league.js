@@ -25,7 +25,7 @@ import React, { useState, useEffect, useContext } from 'react'
 // the context as well as a league nav, then we will use our league states to identify a default component
 // to display as the main content on the page.
 function LeagueHome (props) {
-  const [leagueProps, setLeagueProps] = useState({ ID: 0, name: '', state: '', maxOwner: 0 })
+  const [leagueProps, setLeagueProps] = useState({ ID: 0, name: '', state: '', maxOwner: 0, kind: '' })
   const [commissioner, setCommissioner] = useState({ ID: 0, name: '', email: '' })
   const [teams, setTeams] = useState([])
   const [invites, setInvites] = useState([])
@@ -45,7 +45,7 @@ function LeagueHome (props) {
           Notify(data.error, 0)
         } else {
           setCommissioner(data.league.Commissioner)
-          setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner })
+          setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner, kind: data.league.Kind })
           let count = 0
           if (data.teams != null) {
             setTeams(data.teams)
@@ -102,7 +102,8 @@ function LeagueHome (props) {
             ID: leagueProps.ID,
             name: leagueProps.name,
             state: data.state,
-            maxOwner: leagueProps.maxOwner
+            maxOwner: leagueProps.maxOwner,
+            kind: leagueProps.kind
           }
           setLeagueProps(newProps)
           Notify('League is now in draft mode, please review settings', 1)
@@ -132,7 +133,8 @@ function LeagueHome (props) {
             ID: leagueProps.ID,
             name: leagueProps.name,
             state: 'DRAFT',
-            maxOwner: leagueProps.maxOwner
+            maxOwner: leagueProps.maxOwner,
+            kind: leagueProps.kind
           }
           setLeagueProps(newProps)
           // Update team draft order
@@ -280,7 +282,7 @@ function LeagueSettings (props) {
         setKind(e.target.value)
         break
       default:
-        setMaxOwner(e.target.value)
+        setMaxOwner(e.target.valueAsNumber)
         break
     }
   }
@@ -307,7 +309,8 @@ function LeagueSettings (props) {
             ID: props.league.ID,
             name: data.name,
             state: props.league.state,
-            maxOwner: data.maxOwner
+            maxOwner: data.maxOwner,
+            kind: data.league.kind
           })
           Notify('New Settings Saved', 1)
         }
@@ -322,35 +325,27 @@ function LeagueSettings (props) {
             </div>
     )
   }
-  // Static view
-  if (User.ID !== props.commissioner.ID) {
-    return (
-            <div>
-                <h1>League Settings</h1>
-                <div>
-                    <h2>{props.league.name}</h2>
-                    <p>maxOwners:{props.league.maxOwner}</p>
-                    <p>Kind:{props.league.kind}</p>
-                </div>
-            </div>
-    )
-  }
 
   // Commish view. Max at 16?  why not?
   return (
         <div>
             <h1>League Settings</h1>
             <form onSubmit={submit}>
-                <input name="leagueName" type="text" value={leagueName} onChange={handleChange}></input>
-                <input name="maxOwner" type="number" max="16" min="2" value={maxOwner} onChange={handleChange}></input>
-                <select name="kind" id="league_kind" onChange={handleChange} value={kind}>
+                <label htmlFor="leagueName">League Name:</label>
+                <input name="leagueName" type="text" value={leagueName} onChange={handleChange} disabled={User.ID !== props.commissioner.ID}></input>
+                <label htmlFor='maxOwner'>Maximum Teams:</label>
+                <input name="maxOwner" type="number" max={16} min={2} value={maxOwner} onChange={handleChange} disabled={User.ID !== props.commissioner.ID}></input>
+                <label htmlFor='kind'>League Type:</label>
+                <select name="kind" id="league_kind" onChange={handleChange} value={kind} disabled={User.ID !== props.commissioner.ID}>
                     <option value="TRAD">Traditional</option>
                     <option value="TP">Total Points</option>
                     <option value="ALLPLAY">All Play</option>
                     <option value="PIRATE">Pirate</option>
                     <option value="GUILLOTINE">Guillotine</option>
                 </select>
-                <button type="submit">Save Settings</button>
+                {User.ID === props.commissioner.ID
+                  ? <button type="submit">Save Settings</button>
+                  : ''}
             </form>
         </div>
   )
@@ -380,7 +375,6 @@ function DraftSettings (props) {
       .then(response => response.json())
       .then(data => {
         setSettings(data)
-        setLoading(false)
       })
       .catch(error => console.error(error))
   }, [])
@@ -391,6 +385,12 @@ function DraftSettings (props) {
     formScore()
   }, [settings])
 
+  useEffect(() => {
+    if (dForm.length > 0 && pForm.length > 0 && sForm.length > 0) {
+      setLoading(false)
+    }
+  }, [dForm, pForm, sForm])
+
   function handleChange (e) {
     e.preventDefault()
     // This should work because settings contains no references.
@@ -400,15 +400,16 @@ function DraftSettings (props) {
     if (e.target.name.startsWith('Time')) {
       const current = settings[key[0]].Time.split('T')
       if (e.target.name === 'Time_date') {
-        newSettings[key[0]].Time = e.target.value + 'T' + current[1]
+        newSettings[key[0]].Time = e.target.value + 'T' + current[1] + ':00Z'
       } else {
-        newSettings[key[0]].Time = current[0] + 'T' + e.target.value
+        newSettings[key[0]].Time = current[0] + 'T' + e.target.value + ':00Z'
       }
     } else {
       // Okay, this should work, but only because our input types limit input
       // and we have no user defined strings that can break this.
       if (key.length > 2) {
-        // Scoring settings should be floats with hundreths level precision
+        // Scoring settings should be floats with hundredths level precision.  Mostly for stuff like passing yards, which are usually
+        // 1 point for every 25 yards (0.04)
         newSettings[key[0]][key[1]][e.target.name] = isNaN(parseFloat(e.target.value)) ? e.target.value : parseFloat(e.target.value)
       } else {
         // positional inputs, as well as rounds and draft clock
@@ -454,17 +455,31 @@ function DraftSettings (props) {
       if (key === 'Kind') {
         protoForm.push(<label htmlFor={'positional_' + key}>{key}</label>)
         protoForm.push(
-                    <select key={'positional_' + key} name={key} id={'positional_' + key} value={value} onChange={handleChange}>
-                        <option>Traditional</option>
-                        <option>Individual Defensive Players</option>
-                        <option>Custom</option>
+                    <select
+                    key={'positional_' + key}
+                    name={key}
+                    id={'positional_' + key}
+                    value={value}
+                    onChange={handleChange}
+                    disabled={User.ID !== props.commissioner.ID}>
+                        <option value='TRAD'>Traditional</option>
+                        <option value='IDP'>Individual Defensive Players</option>
+                        <option value='CUSTOM'>Custom</option>
                     </select>
         )
       } else if (key === 'ID') {
         // Do nothing
       } else {
         protoForm.push(<label htmlFor={'positional_' + key}>{key}</label>)
-        protoForm.push(<input type="number" name={key} id={'positional_' + key} value={value} max={12} step={1} onChange={handleChange} />)
+        protoForm.push(<input
+            type="number"
+            name={key}
+            id={'positional_' + key}
+            value={value}
+            max={12}
+            step={1}
+            onChange={handleChange}
+            disabled={User.ID !== props.commissioner.ID}/>)
       }
     })
     setPForm(protoForm)
@@ -476,11 +491,18 @@ function DraftSettings (props) {
       switch (findInputType(key)) {
         case 'select': {
           let selectMeat
-          key === 'kind'
-            ? selectMeat = [<option key="TRAD" value="TRAD">Traditional</option>, <option key="AUCTION" value="AUCTION">Custom</option>]
-            : selectMeat = [<option key="SNAKE" value="SNAKE">Snake</option>, <option key="STRAIGHT" value="STRAIGHT">Straight</option>, <option key="CURSED" value="CURSED">Cursed</option>]
+          if (key === 'Kind') {
+            selectMeat = [<option key="TRAD" value="TRAD">Traditional</option>, <option key="AUCTION" value="AUCTION">Auction</option>]
+          } else {
+            selectMeat = [<option key="SNAKE" value="SNAKE">Snake</option>, <option key="STRAIGHT" value="STRAIGHT">Straight</option>, <option key="CURSED" value="CURSED">Cursed</option>]
+          }
           protoForm.push(<label htmlFor={'draft_' + key}>{key}</label>)
-          protoForm.push(<select key={'draft_' + key} name={key} id={'draft_' + key} value={value} onChange={handleChange}>
+          protoForm.push(<select
+          key={'draft_' + key}
+          name={key} id={'draft_' + key}
+          value={value}
+          onChange={handleChange}
+          disabled={User.ID !== props.commissioner.ID}>
                         {selectMeat.map(o => o)}
                     </select>)
           break }
@@ -489,7 +511,14 @@ function DraftSettings (props) {
           protoForm.push(
                         <div>
                             <label htmlFor={'draft_' + key}>{key}</label>
-                            <input key={'draft_' + key} type="number" name={key} id={'draft_' + key} value={value} onChange={handleChange} />
+                            <input
+                            key={'draft_' + key}
+                            type="number"
+                            name={key}
+                            id={'draft_' + key}
+                            value={value}
+                            onChange={handleChange}
+                            disabled={User.ID !== props.commissioner.ID}/>
                         </div>)
 
           break }
@@ -500,15 +529,26 @@ function DraftSettings (props) {
           protoForm.push(
                         <div>
                             <label htmlFor={key + '_date'}>Draft Start</label>
-                            <input type="date" name={key + '_date'} id={'draft_' + key + '_date'} min={today[0]} value={split[0]} onChange={handleChange} />
-                            <input type="time" name={key + '_time'} id={'draft_' + key + '_time'} value={split[1].replace('Z', '')} onChange={handleChange} />
+                            <input type="date"
+                            name={key + '_date'}
+                            id={'draft_' + key + '_date'}
+                            min={today[0]}
+                            value={split[0]}
+                            onChange={handleChange}
+                            disabled={User.ID !== props.commissioner.ID}/>
+                            <input type="time"
+                            name={key + '_time'}
+                            id={'draft_' + key + '_time'}
+                            value={split[1].replace('Z', '')}
+                            onChange={handleChange}
+                            disabled={User.ID !== props.commissioner.ID}/>
                         </div>)
 
           break }
         default: {
           if (key !== 'ID') {
             protoForm.push(<label htmlFor={'draft_' + key}>{key}</label>)
-            protoForm.push(<input type="text" name={key} id={'draft_' + key} value={value} onChange={handleChange} />)
+            protoForm.push(<input type="text" name={key} id={'draft_' + key} value={value} onChange={handleChange} disabled={User.ID !== props.commissioner.ID}/>)
           }
         }
       }
@@ -521,9 +561,17 @@ function DraftSettings (props) {
     Object.entries(settings.scoring).forEach(([key, value]) => {
       protoForm.push(<h3>{key}</h3>)
       Object.entries(value).forEach(([key2, value2]) => {
-        if (key2 === 'ID') {
+        if (key2 !== 'ID') {
           protoForm.push(<label htmlFor={'scoring_' + key + '_' + key2}>{key2}</label>)
-          protoForm.push(<input type="number" name={key2} id={'scoring_' + key + '_' + key2} value={value2} max={12} step={0.01} onChange={handleChange} />)
+          protoForm.push(<input
+            type="number"
+            name={key2}
+            id={'scoring_' + key + '_' + key2}
+            value={value2}
+            max={12}
+            step={0.01}
+            onChange={handleChange}
+            disabled={User.ID !== props.commissioner.ID}/>)
         }
       })
     })
@@ -537,45 +585,6 @@ function DraftSettings (props) {
             </div>
     )
   }
-  if (User.ID !== props.commissioner.ID) {
-    const tempSettings = Object.entries(settings)
-    return (
-            <div>
-                {tempSettings.map(([key, value]) => <h1 key={'draft_' + value}>{key}</h1>)}
-            </div>
-    )
-
-    // return (
-    //         <div>
-    //             <h1>Draft Settings</h1>
-    //             {Object.entries(settings.draft).map(([key, value]) => {
-    //               key == 'ID'
-    //                 ? ''
-    //                 : <div>
-    //                         <h6>{key}:</h6><p>{value}</p>
-    //                     </div>
-    //             })}
-    //             <h1>Positional Settings</h1>
-    //             {positional.map(p => {
-    //               // key == "ID" ? "" :
-    //                     <div>
-    //                         <h6>{p[0]}:</h6><p>{p[1]}</p>
-    //                     </div>
-    //             })}
-    //             <h1>Scoring Settings</h1>
-    //             {Object.entries(settings.scoring).forEach(([key, value]) => {
-    //               Object.entries(value).forEach(([key2, value2]) => {
-    //                 key2 == 'ID'
-    //                   ? ''
-    //                   : <div>
-    //                             <h6>{key2}:</h6><p>{value2}</p>
-    //                         </div>
-    //               })
-    //             })
-    //             }
-    //         </div>
-    // )
-  }
 
   return (
         <div>
@@ -586,7 +595,9 @@ function DraftSettings (props) {
                 {pForm.map(s => s)}
                 <h2>scoring settings</h2>
                 {sForm.map(s => s)}
-                <input type="submit" value="Change Draft settings" />
+                {User.ID === props.commissioner.ID
+                  ? <input type="submit" value="Change Draft settings" />
+                  : ''}
             </form>
         </div>
   )

@@ -1,6 +1,6 @@
 'use strict'
 import LeagueHome from './league.js'
-import { NotifyContext, UserContext } from './util.js'
+import { NotifyContext } from './util.js'
 import React, { useState, useEffect, useContext } from 'react'
 // The Lobby layer is where we want to house the general user interface.  While Lobby's main purpose is to funnel a user
 // to a specific League, features like user settings (dark mode?) and general account messaging (Likely a bot to send messages

@@ -1172,6 +1172,7 @@ func setDraftSettings(c *gin.Context) {
 	var f FullDraftSettings
 	if err := c.BindJSON(&f); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		fmt.Println("Bind issues")
 		return
 	}
 
@@ -1196,7 +1197,7 @@ func setDraftSettings(c *gin.Context) {
 
 	//If implemented, we would check positional kind here to see which stats would be zeroed out
 	//I.E. if individual defensive player we would zero yard_bonus, yards and all the point
-	//allowed fields, conversly if traditional we would make sure individual tackles are zeroed out
+	//allowed fields, conversely if traditional we would make sure individual tackles are zeroed out
 
 	_, err = tx.Exec(`UPDATE scoring_settings_offense SET 
 		pass_att=?, pass_comp=?, pass_yard=?, pass_td=?, pass_int=?, pass_sack=?,
@@ -1249,10 +1250,12 @@ func setDraftSettings(c *gin.Context) {
 		f.D.ID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		fmt.Println("Exec Issues")
 		return
 	}
 	if err = tx.Commit(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
+		fmt.Println("commit issues")
 		return
 	}
 
@@ -1412,7 +1415,7 @@ func startDraft(c *gin.Context) {
 		}
 	} else {
 		//Fetch from draft order?  I can't think of the exact edge case where we would need to return this,
-		//but for consistancy we'll return the draft order whether we need to generate it or not.
+		//but for consistency we'll return the draft order whether we need to generate it or not.
 		rows, err := tx.Query("SELECT id, slot FROM teams_" + strconv.FormatInt(b.ID, 10))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
