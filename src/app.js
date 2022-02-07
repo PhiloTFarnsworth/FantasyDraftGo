@@ -53,7 +53,7 @@ function App () {
             <React.StrictMode>
             <UserContext.Provider value={user}>
                 <NotifyContext.Provider value={notify}>
-                    <div className="container" style={{ minHeight: '100vh' }}>
+                    <div className="container p-2" style={{ minHeight: '100vh' }}>
                         <Header />
                         <Notify note={notification} onClick={clearNote} />
                         {user.ID === 0 // Guest view or lobby
@@ -70,9 +70,9 @@ function App () {
 // Explains FantasyDraft and houses LoginController
 function UnregisteredLobby (props) {
   return (
-    <div className='row' >
-      <h1 className='display-1 text-center'>FantasyDraft</h1>
-      <h2 className='display-2 text-center'>Fantasy Football Filtered for Fluff</h2>
+    <div className='row m-2 p-2 bg-white' style={{ minHeight: '80vh' }} >
+      <h1 className='display-4 text-center'>FantasyDraft</h1>
+      <h2 className='display-5 text-center'>Fantasy Football Filtered for Fluff</h2>
       <div className='col'>
         <p><strong>FantasyDraft</strong> allows you to</p>
         <ul>

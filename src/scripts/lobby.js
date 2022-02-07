@@ -13,20 +13,20 @@ function Lobby () {
 
   if (leagueID !== 0) {
     return (
-      <div className='container'>
+      <div className='bg-white p-2 m-2'>
         <LeagueHome openLeague={setLeagueID} ID={leagueID} />
       </div>
     )
   }
 
   return (
-    <div className='row text-center'>
-      <h1 className='display-1 text-capitalize'>{User.name} Dashboard</h1>
+    <div className='bg-white p-2 m-2 text-center'>
+      <h1 className='display-4 text-capitalize'>{User.name} Dashboard</h1>
       <div className='row'>
         <LeagueWizard openLeague={setLeagueID} />
       </div>
       <div className='row'>
-        <h2 className='display-2'>Active Leagues</h2>
+        <h2 className='display-5'>Active Leagues</h2>
         <LeagueDirectory openLeague={setLeagueID} />
       </div>
     </div>
@@ -95,8 +95,8 @@ function LeagueDirectory (props) {
                 <button className='btn btn-warning' onClick={activeToggle}>Leagues</button>
                 <button className='btn btn-dark' disabled>Invites</button>
               </div>
-              <Invitations leagues={leagues} openLeague={props.openLeague} />
-            </div>
+                <Invitations leagues={leagues} openLeague={props.openLeague} />
+              </div>
         }
       </div>
     </div>
@@ -212,7 +212,7 @@ function LeagueWizard (props) {
           'Content-Type': 'Application/JSON'
         }
       })
-      const data = response.json()
+      const data = await response.json()
 
       if (response.ok) {
         props.openLeague(data.leagueID)
@@ -223,20 +223,6 @@ function LeagueWizard (props) {
 
     fetchData()
       .catch(error => console.error(error))
-    // fetch('/createleague', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/JSON'
-    //   }
-    // })
-    //   .then(response => response.json())
-    // // data will carry our league's ID and the list of teams in order of their first round draft position.
-    //   .then(data => {
-    //     props.openLeague(data.leagueID)
-    //   })
-    //   .catch(error => console.log('fail:', error))
   }
 
   if (!open) {
@@ -251,15 +237,21 @@ function LeagueWizard (props) {
       <div className='d-flex justify-content-end'>
         <button className='btn-close btn-close' onClick={toggleFocus}></button>
       </div>
-      <h2 className='display-2'>Create a League!</h2>
+      <h2 className='display-5'>Create a League!</h2>
       <form onSubmit={createLeague}>
-        <label htmlFor='leagueName' className='display-6'>Name Your League</label>
-        <input name="leagueName"type='text' className='form-control' onChange={handleLeagueName} placeholder='Name Your League!' required></input>
-        <label htmlFor='teams' className='display-6'>Teams: {maxOwner}</label>
-        <input name="teams" className='form-range' onChange={handleMaxOwner} type='range' min='1' max='14' value={maxOwner}></input>
-        <label htmlFor='teamName' className='display-6'>Name Your Team</label>
-        <input name="teamName" type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required></input>
-        <button className='btn btn-success' type='submit'> Start Draft! </button>
+        <div className='form-floating mb-3'>
+          <input name="leagueName" id='leagueName' type='text' className='form-control' onChange={handleLeagueName} placeholder='Name Your League!' required/>
+          <label htmlFor='leagueName'>Name Your League!</label>
+        </div>
+        <div className='mb-3'>
+          <label htmlFor='teams' className='display-6'>Teams: {maxOwner}</label>
+          <input name="teams" className='form-range' onChange={handleMaxOwner} type='range' min='1' max='14' value={maxOwner}/>
+        </div>
+        <div className='form-floating mb-3'>
+          <input name="teamName" id='teamName' type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required/>
+          <label htmlFor='teamName' >Name Your Team!</label>
+        </div>
+          <button className='btn btn-success' type='submit'> Start Draft! </button>
       </form>
     </div>
   )
@@ -301,31 +293,16 @@ function TeamWizard (props) {
     }
     fetchData()
       .catch(error => console.error(error))
-
-    // fetch('/joinleague', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ league: props.league, team: teamName }),
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/JSON'
-    //   }
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     if (data.ok == false) {
-    //       Notify(data.error, 0)
-    //     } else {
-    //       props.openLeague(props.league)
-    //     }
-    //   })
-    //   .catch(error => console.log(error))
   }
 
   return (
         <form onSubmit={submit}>
-            <button onClick={close}>X</button>
-            <input type="text" onChange={handleChange} placeholder="Team Name" required></input>
-            <button type="submit">Name Team</button>
+            <button className='btn-close btn-close' onClick={close}></button>
+            <div className='form-floating mb-3'>
+            <input type="text" id="teamNameCreate" onChange={handleChange} className="form-control" placeholder="Team Name" required></input>
+            <label htmlFor='teamNameCreate'>Team Name</label>
+            </div>
+            <button type="submit">Create Team</button>
         </form>
   )
 }

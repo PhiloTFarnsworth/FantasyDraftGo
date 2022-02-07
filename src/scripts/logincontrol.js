@@ -33,28 +33,6 @@ function LoginForm (props) {
 
     fetchData()
       .catch(error => console.error(error))
-    // fetch('/login', {
-    //   credentials: 'include',
-    //   method: 'POST',
-    //   body: JSON.stringify(userData),
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/JSON'
-    //   }
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     console.log('success:', data)
-    //     // as long as data['ok'] is not a false value then we're good to go.  Use !== because I'm pretty sure null is false-y
-    //     if (data.ok !== false) {
-    //       const userObj = { ID: data.ID, name: data.name, email: data.email }
-    //       props.onLogin(userObj)
-    //     } else {
-    //       Notify(data.error, 0)
-    //       console.error(data.error)
-    //     }
-    //   })
-    //   .catch(error => { console.error('fail:', error) })
   }
 
   const handleChange = (e) => {
@@ -63,23 +41,23 @@ function LoginForm (props) {
   }
 
   return (
-        <form onSubmit={handleSubmit}>
-            <div className='d-flex justify-content-end mb-2'>
-                <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
-            </div>
-            <legend>Log in to FantasyDraft!</legend>
-            <div className='mb-2'>
-                <label htmlFor='logName' className='form-label'>Username</label>
-                <input type='text' name='username' id='logName' className='form-control' value={username} onChange={handleChange} required></input>
-            </div>
-            <div className='mb-2'>
-                <label htmlFor='logPass' className='form-label'>Password</label>
-                <input type='password' name='password' id='logPass' className='form-control' value={password} onChange={handleChange} required></input>
-            </div>
-            <div className='d-grid gap-2 mb-2'>
-                <button type='submit' className='btn btn-success'>Login</button>
-            </div>
-        </form>
+    <form onSubmit={handleSubmit}>
+      <div className='d-flex justify-content-end mb-2'>
+        <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
+      </div>
+      <legend>Log in to FantasyDraft!</legend>
+      <div className='form-floating mb-2'>
+        <input type='text' name='username' id='logName' className='form-control' value={username} onChange={handleChange} placeholder='Username' required/>
+        <label htmlFor='logName' className='form-label'>Username</label>
+      </div>
+      <div className='form-floating mb-2'>
+        <input type='password' name='password' id='logPass' className='form-control' value={password} onChange={handleChange} placeholder='Password' required/>
+        <label htmlFor='logPass' className='form-label'>Password</label>
+      </div>
+      <div className='d-grid gap-2 mb-2'>
+        <button type='submit' className='btn btn-success'>Login</button>
+      </div>
+    </form>
   )
 }
 
@@ -120,7 +98,7 @@ function RegisterForm (props) {
           'Content-Type': 'Application/json'
         }
       })
-      const data = response.json()
+      const data = await response.json()
 
       if (response.ok) {
         const userObj = { ID: data.ID, name: data.name, email: data.email }
@@ -131,54 +109,34 @@ function RegisterForm (props) {
     }
     fetchData()
       .catch(error => console.error(error))
-    // fetch('/register', {
-    //   method: 'POST',
-    //   body: JSON.stringify(userData),
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/json'
-    //   }
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     if (data.ok !== false) {
-    //       const userObj = { ID: data.ID, name: data.name, email: data.email }
-    //       props.onRegister(userObj)
-    //     } else {
-    //       console.error(data.error)
-    //       Notify(data.error, 0)
-    //     }
-    //   })
-    //   .catch(error => { console.error('fail:', error) })
-    // return false
   }
 
   return (
-        <form onSubmit={handleSubmit}>
-            <div className='d-flex justify-content-end'>
-                <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
-            </div>
-            <legend>Register for FantasyDraft!</legend>
-            <div className='mb-2'>
-                <label htmlFor='registerName' className='form-label'>Username</label>
-                <input type='text' name='username' className='form-control' id='registerName' onChange={handleChange} required></input>
-            </div>
-            <div className='mb-2'>
-                <label htmlFor='registerEmail' className='form-label'>Email Address</label>
-                <input type='email' name='email' className='form-control' id='registerEmail' onChange={handleChange} required></input>
-            </div>
-            <div className='mb-2'>
-                <label htmlFor='registerPass' className='form-label'>Password</label>
-                <input type='password' name='password' className='form-control' id='registerPass' onChange={handleChange} required></input>
-            </div>
-            <div className='mb-2'>
-                <label htmlFor='registerConfirm' className='form-label'>Confirm Password</label>
-                <input type='password' name='confirm' className='form-control' id='registerConfirm' onChange={handleChange} required></input>
-            </div>
-            <div className='d-grid gap-2 mb-2'>
-                <button type='submit' className='btn btn-success'>Register</button>
-            </div>
-        </form>
+    <form onSubmit={handleSubmit}>
+      <div className='d-flex justify-content-end'>
+        <button onClick={props.onDismiss} className='btn-close btn-close' aria-label="Close"></button>
+      </div>
+      <legend>Register for FantasyDraft!</legend>
+      <div className='form-floating mb-2'>
+        <input type='text' name='username' className='form-control' id='registerName' onChange={handleChange} required placeholder='Username'/>
+        <label htmlFor='registerName' className='form-label'>Username</label>
+      </div>
+      <div className='form-floating mb-2'>
+        <input type='email' name='email' className='form-control' id='registerEmail' onChange={handleChange} placeholder="Email Address" required />
+        <label htmlFor='registerEmail' className='form-label'>Email Address</label>
+      </div>
+      <div className='form-floating mb-2'>
+        <input type='password' name='password' className='form-control' id='registerPass' onChange={handleChange} placeholder='Password' required/>
+        <label htmlFor='registerPass' className='form-label'>Password</label>
+      </div>
+      <div className='form-floating mb-2'>
+        <input type='password' name='confirm' className='form-control' id='registerConfirm' onChange={handleChange} placeholder='Confirm Password' required/>
+        <label htmlFor='registerConfirm' className='form-label'>Confirm Password</label>
+      </div>
+      <div className='d-grid gap-2 mb-2'>
+        <button type='submit' className='btn btn-success'>Register</button>
+      </div>
+    </form>
   )
 }
 

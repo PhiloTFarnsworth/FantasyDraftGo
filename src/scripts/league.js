@@ -117,36 +117,6 @@ function LeagueHome (props) {
       .catch(error => console.log(error))
   }
 
-  // function lockLeague (e) {
-  //   e.preventDefault()
-  //   const csrftoken = document.getElementById('CSRFToken').textContent
-  //   fetch('/lockleague', {
-  //     method: 'POST',
-  //     headers: {
-  //       'X-CSRF-TOKEN': csrftoken,
-  //       'Content-Type': 'Application/json'
-  //     },
-  //     body: JSON.stringify({ league: leagueProps.ID })
-  //   })
-  //     .then(response => response.json())
-  //     .then(data => {
-  //       if (!data.ok) {
-  //         Notify(data.error, 0)
-  //       } else {
-  //         const newProps = {
-  //           ID: leagueProps.ID,
-  //           name: leagueProps.name,
-  //           state: data.state,
-  //           maxOwner: leagueProps.maxOwner,
-  //           kind: leagueProps.kind
-  //         }
-  //         setLeagueProps(newProps)
-  //         Notify('League is now in draft mode, please review settings', 1)
-  //       }
-  //     })
-  //     .catch(error => console.error(error))
-  // }
-
   function startDraft (e) {
     e.preventDefault()
     const fetchData = async () => {
@@ -186,43 +156,6 @@ function LeagueHome (props) {
       .catch(error => console.error(error))
   }
 
-  // function startDraft (e) {
-  //   e.preventDefault()
-  //   fetch('/startdraft', {
-  //     method: 'POST',
-  //     headers: {
-  //       'X-CSRF-TOKEN': csrftoken,
-  //       'Content-Type': 'Application/json'
-  //     },
-  //     body: JSON.stringify({ league: leagueProps.ID })
-  //   })
-  //     .then(response => response.json())
-  //     .then(data => {
-  //       if (!data.ok) {
-  //         Notify(data.error, 0)
-  //       } else {
-  //         // Update league state
-  //         const newProps = {
-  //           ID: leagueProps.ID,
-  //           name: leagueProps.name,
-  //           state: 'DRAFT',
-  //           maxOwner: leagueProps.maxOwner,
-  //           kind: leagueProps.kind
-  //         }
-  //         setLeagueProps(newProps)
-  //         // Update team draft order
-  //         const updateTeams = [...teams]
-  //         data.forEach(slot => {
-  //           const index = updateTeams.findIndex(t => t.ID === slot.Team)
-  //           updateTeams[index].Slot = slot.Slot
-  //         })
-  //         setTeams(updateTeams)
-  //         Notify('Draft has begun!', 1)
-  //       }
-  //     })
-  //     .catch(error => console.error(error))
-  // }
-
   if (loading) {
     return <div>loading...</div>
   }
@@ -232,18 +165,26 @@ function LeagueHome (props) {
   switch (leagueProps.state) {
     case 'INIT':
       return (
-                <div>
-                    <button className='btn-close btn-close' onClick={closeLeague}></button>
-                    <h1>{leagueProps.name} League Page</h1>
-                    <h2>League Invitations</h2>
-                    <h3>Teams Confirmed</h3>
+                <div className='text-center'>
+                    <div className='d-grid'><button className='btn btn-danger' onClick={closeLeague}>Return to Dashboard</button></div>
+                    <h1 className='text-capitalize display-4 mb-2'>{leagueProps.name} League Page</h1>
+                    <h2 className='display-5 mb-2'>League Invitations</h2>
+                    <div className='border border-warning p-1 mb-3'>
+                    <h3 className='display-6 mb-2'>Teams Confirmed</h3>
                     {teams.map(team => <TeamBox key={team.ID + '_team'} team={team} />)}
-                    <h3>Users Invited</h3>
-                    {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={'invite_' + i} invite={invite} /> : '')}
-                    {openSpots.length > 0 ? <h3>You have {openSpots.length} slot{openSpots.length > 1 ? 's' : ''} open</h3> : ''}
-                    {[...Array(openSpots)].map((x, i) => <InviteBox key={'anon_invite_' + i} invite={null} commissioner={commissioner} league={leagueProps.ID} />)}
-                    {openSpots === 0 && User.ID === commissioner.ID ? <button onClick={lockLeague}>Lock League</button> : ''}
-                    <h3>Review League Settings</h3>
+                    </div>
+                    {invites.length > 0
+                      ? <div className='border border-warning p-1 mb-3'>
+                          <h3 className='display-6 mb-2'>Users Invited</h3>
+                          {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={'invite_' + i} index={i} commissioner={commissioner} invite={invite} /> : '')}
+                        </div>
+                      : ''}
+                    {openSpots > 0 ? <h3 className='display-6 mb-2'>{openSpots} Slot{openSpots > 1 ? 's' : ''} Open</h3> : ''}
+                    {[...Array(openSpots)].map((x, i) => <InviteBox key={'anon_invite_' + i} index={i} invite={null} commissioner={commissioner} league={leagueProps.ID} />)}
+                    {openSpots === 0 && User.ID === commissioner.ID
+                      ? <div className='d-grid mb-3'><button className='btn btn-success' onClick={lockLeague}>Lock League</button></div>
+                      : ''}
+                    <h2 className='display-5 mb-2'>Review League Settings</h2>
                     <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps} />
                 </div>
       )
@@ -265,9 +206,21 @@ function LeagueHome (props) {
 
 // Team Box should be a generic view of all top end team information.
 function TeamBox (props) {
+  const User = useContext(UserContext)
   return (
-        <div id={props.team.ID + '_team'}>
-            {props.team.Name} - {props.team.Manager.name} ({props.team.Manager.email})
+        <div id={props.team.ID + '_team'} className='row m-1 p-3 border-top border-warning'>
+            <div className='col border-end border-success overflow-visible'>
+              <p>{props.team.Name}</p>
+            </div>
+            <div className='col border-end border-success overflow-visible'>
+              <p>{props.team.Manager.name}</p>
+            </div>
+            <div className='col border-end border-success overflow-visible'>
+              <p>{props.team.Manager.email}</p>
+            </div>
+            <div className='col d-grid overflow-visible'>
+              {props.team.Manager.ID === User.ID ? <button className='btn btn-warning'>Edit Team Name</button> : ''}
+            </div>
         </div>
   )
 }
@@ -309,24 +262,6 @@ function InviteBox (props) {
 
     fetchData()
       .catch(error => console.error(error))
-
-    // fetch('/invite', {
-    //   method: 'POST',
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/json'
-    //   },
-    //   body: JSON.stringify({ invitee: invitee, league: props.league })
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     if (!data.ok) {
-    //       Notify(data.error, 0)
-    //     } else {
-    //       setCompleteInvite(data)
-    //     }
-    //   })
-    //   .catch(error => console.error(error))
   }
 
   useEffect(() => {
@@ -339,17 +274,29 @@ function InviteBox (props) {
   // username or email and invite them to the league.
   if (completeInvite === null) {
     return (
-            <div>
-                <form onSubmit={invite}>
-                    <input type='email' placeholder="email" onChange={handleChange} required></input>
-                    <button type='submit'>Invite!</button>
-                </form>
-            </div>)
+      <form className='form-control bg-warning mb-3' onSubmit={invite}>
+        <div className='form-floating'>
+          <input id={'inviteName' + props.index} className='form-control' type='email' placeholder="Invitee Email" onChange={handleChange} required></input>
+          <label htmlFor={'inviteName_' + props.index}>Invitee Email</label>
+        </div>
+        <div className='d-grid'>
+          <button className='btn btn-success btn-lg' type='submit'>Invite!</button>
+        </div>
+      </form>
+    )
   } else {
     return (
-            <div>
-                {completeInvite.name} - ({completeInvite.email})
-            </div>
+      <div className='row m-1 p-3 text-center mb-3 border-top border-warning'>
+        <div className='col border-end border-success overflow-visible'>
+          <p>{completeInvite.name}</p>
+        </div>
+        <div className='col border-end border-success overflow-visible'>
+         <p>{completeInvite.email}</p>
+        </div>
+        <div className='col d-grid overflow-visible'>
+          <button className='btn btn-danger btn-sm' disabled={User.ID !== props.commissioner.ID}>Revoke Invite</button>
+        </div>
+      </div>
     )
   }
 }
@@ -415,32 +362,6 @@ function LeagueSettings (props) {
 
     fetchData()
       .catch(error => console.error(error))
-    // fetch('/leaguesettings', {
-    //   method: 'POST',
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/json'
-    //   },
-    //   body: JSON.stringify({ league: props.league.ID, name: leagueName, maxOwner: maxOwner, kind: kind })
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     if (!data.ok) {
-    //       Notify(data.error, 0)
-    //     } else {
-    //       setMaxOwner(data.maxOwner)
-    //       setLeagueName(data.name)
-    //       props.setLeague({
-    //         ID: props.league.ID,
-    //         name: data.name,
-    //         state: props.league.state,
-    //         maxOwner: data.maxOwner,
-    //         kind: data.league.kind
-    //       })
-    //       Notify('New Settings Saved', 1)
-    //     }
-    //   })
-    //   .catch(error => console.error(error))
   }
 
   if (loading) {
@@ -452,26 +373,33 @@ function LeagueSettings (props) {
   }
 
   return (
-        <div>
-            <h1>League Settings</h1>
-            <form onSubmit={submit}>
-                <label htmlFor="leagueName">League Name:</label>
-                <input name="leagueName" type="text" value={leagueName} onChange={handleChange} disabled={User.ID !== props.commissioner.ID}></input>
-                <label htmlFor='maxOwner'>Maximum Teams:</label>
-                <input name="maxOwner" type="number" max={16} min={2} value={maxOwner} onChange={handleChange} disabled={User.ID !== props.commissioner.ID}></input>
-                <label htmlFor='kind'>League Type:</label>
-                <select name="kind" id="league_kind" onChange={handleChange} value={kind} disabled={User.ID !== props.commissioner.ID}>
-                    <option value="TRAD">Traditional</option>
-                    <option value="TP">Total Points</option>
-                    <option value="ALLPLAY">All Play</option>
-                    <option value="PIRATE">Pirate</option>
-                    <option value="GUILLOTINE">Guillotine</option>
-                </select>
-                {User.ID === props.commissioner.ID
-                  ? <button type="submit">Save Settings</button>
-                  : ''}
-            </form>
+    <div>
+      <form className='form-control mb-3 bg-warning' onSubmit={submit}>
+        <div className='row mb-3'>
+          <div className='col form-floating'>
+          <input id="NameSetting" type="text" className='form-control' value={leagueName} onChange={handleChange} placeholder='League Name' disabled={User.ID !== props.commissioner.ID}/>
+          <label htmlFor="NameSetting">League Name</label>
+          </div>
+          <div className='col form-floating'>
+          <input id='ownerSetting' type="number" className='form-control' max={16} min={2} value={maxOwner} onChange={handleChange} placeholder='Maximum Teams' disabled={User.ID !== props.commissioner.ID}/>
+          <label htmlFor='ownerSetting'>Maximum Teams</label>
+          </div>
         </div>
+        <div className='mb-3 form-floating'>
+          <select className='form-select' name="kind" id="leagueKind" placeholder='League Type' onChange={handleChange} value={kind} disabled={User.ID !== props.commissioner.ID}>
+            <option value="TRAD">Traditional</option>
+            <option value="TP">Total Points</option>
+            <option value="ALLPLAY">All Play</option>
+            <option value="PIRATE">Pirate</option>
+            <option value="GUILLOTINE">Guillotine</option>
+          </select>
+          <label htmlFor='leagueKind'>League Type</label>
+          </div>
+          {User.ID === props.commissioner.ID
+            ? <div className='d-grid mb-3'><button className='btn btn-success btn-lg' type="submit">Save Settings</button></div>
+            : ''}
+      </form>
+    </div>
   )
 }
 
@@ -508,13 +436,6 @@ function DraftSettings (props) {
 
     fetchData()
       .catch(error => console.error(error))
-    // const url = '/league/settings/getdraft/' + props.league
-    // fetch(url, { method: 'GET' })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     setSettings(data)
-    //   })
-    //   .catch(error => console.error(error))
   }, [])
 
   useEffect(() => {
@@ -580,23 +501,6 @@ function DraftSettings (props) {
 
     fetchData()
       .catch(error => console.error(error))
-    // fetch('/league/settings/setdraft/' + props.league, {
-    //   method: 'POST',
-    //   headers: {
-    //     'X-CSRF-TOKEN': csrftoken,
-    //     'Content-Type': 'Application/json'
-    //   },
-    //   body: JSON.stringify(settings)
-    // })
-    //   .then(response => response.json())
-    //   .then(data => {
-    //     if (data.ok) {
-    //       Notify('Draft Settings Saved', 1)
-    //     } else {
-    //       Notify('Save failed due to: ' + data.error, 0)
-    //     }
-    //   })
-    //   .catch(error => console.error(error))
   }
 
   function findInputType (key) {
@@ -761,209 +665,3 @@ function DraftSettings (props) {
 }
 
 export default LeagueHome
-
-// Setting a draft order is a neat feature, but this approach has been finicky. Likely want to
-// just integrate a third party library to assign teams to slots with a click and drag interface,
-// as multiple vanilla html selects are clunky.
-
-// //We'll allow commissioners to set their own league draft orders, and otherwise we'll create
-// //a random ordering.  We should probably create order on league lock, display and allow editing
-// //during the predraft portion.
-// function DraftOrder(props) {
-//     const [order, setOrder] = useState(new Array(props.teams.length))
-//     const [unassigned, setUnassigned] = useState([])
-//     const [loading, setLoading] = useState(true)
-//     const User = useContext(UserContext)
-//     const Notify = useContext(NotifyContext)
-
-//     //So order is stored in props.teams, but if any team has a Slot: 0, then we should treat
-//     //all teams as unordered
-//     useEffect(() => {
-//         if (props.teams.some(t => t.Slot === 0)) {
-//             let newUnassigned = props.teams.map(t => t)
-//             setUnassigned(newUnassigned)
-//         } else {
-//             let newOrder = [...order]
-//             props.teams.forEach(t => newOrder[t.Slot] = t)
-//             setOrder(newOrder)
-//         }
-//         setLoading(false)
-//     }, []);
-
-//     //We'll grab the length of props.teams, then randomly toss out numbers until we've assigned each team.
-//     function generateRandomOrder(e) {
-//         e.preventDefault()
-//         let min = 1
-//         let max = props.teams.length
-//         let slots = []
-//         let randOrder = []
-//         //There's likely a better way, but we'll assign positions to an array.
-//         for (let i = 0; i < max; i++) {
-//             slots.push(i)
-//         }
-//         //Then, we'll pull indexes at random, splicing them from the slots array into the 'newOrder' array,
-//         //reducing the max by 1 until we have all numbers assigned.
-//         while (min <= max) {
-//             //See math.random in the mdn documentation
-//             let rand = Math.floor(Math.random() * ((max+1)-min))
-//             let s = slots.splice(rand, 1)
-//             randOrder.push(s)
-//             max = slots.length
-//         }
-//         //Finally, with all draft slots distributed, set our new order
-//         let newOrder = [...order]
-//         for (let i = 0; i < newOrder.length; i++) {
-//             newOrder[i] = props.teams[randOrder[i]]
-//         }
-//         //We set our order to the generated order
-//         setOrder(newOrder)
-//         //Finally, we take our new order and make it agree with the team/spot layout we have in
-//         //the sql.
-//         let serverOrder = []
-//         for (let i=0; i< newOrder.length; i++) {
-//             serverOrder.push({Team: newOrder[i].ID, Slot: i + 1})
-//         }
-//         //Then submit it to the server
-//         setOrderServerside(serverOrder)
-//     }
-
-//     function setOrderServerside(newOrder) {
-//         let csrftoken = document.getElementById('CSRFToken').textContent
-//         fetch("/league/setorder/" + props.league.ID, {
-//             method: "POST",
-//             headers: {
-//                 'X-CSRF-TOKEN': csrftoken,
-//                 'Content-Type': 'Application/json'
-//             },
-//             body: JSON.stringify(newOrder)
-//         })
-//         .then(response => response.json())
-//         .then(data => {
-//             if (data.ok != false) {
-//                 Notify("Draft Order Set", 1)
-//             } else {
-//                 Notify("Draft Order failure: " + data.error, 0)
-//             }})
-//         .catch(error => console.log(error))
-//     }
-
-//     //What we do here is we remove the team from unassigned, lock the team in the slot and add it to our draft order
-//     //list.
-//     function lockSlot(e) {
-//         e.preventDefault()
-//         //First, we grab the ID of the select that holds the users choice.  the integer after 'draft_order_lock_' contains
-//         //is shared with the select field draft_order_, so we can grab the users choice of team.
-//         let chosenID = document.querySelector('#draft_order_' + e.target.id.replace("draft_order_lock_", "")).value
-//         let index
-//         let choice
-//         for (let i = 0; i < unassigned.length; i++) {
-//             if (chosenID == unassigned[i].ID) {
-//                 index = i
-//                 choice = unassigned[i]
-//                 break
-//             }
-//         }
-//         //Take the chosen team out of unassigned
-//         let newUnassigned = [...unassigned]
-//         newUnassigned.splice(index, 1)
-//         setUnassigned(newUnassigned)
-
-//         //add the new locked order
-//         let newOrder = [...order]
-//         newOrder[i] = choice
-//         setOrder(newOrder)
-//     }
-
-//     function unlockSlot(e) {
-//         e.preventDefault()
-//         let chosenID = document.querySelector('#draft_order_' + e.target.id.replace("draft_order_lock_", "")).value
-//         //I'm pretty sure this is a trillion dollar mistake, but we'll create a new order array,
-//         //then assign (not push) all but the unlocked slot to the new order.  This will leave our
-//         //slot as undefined, which we'll use to filter out whether a slot is locked/set or not.  In
-//         //most contexts this makes no sense, but since we already have to copy a new array to set
-//         //order, it makes a little sense.
-//         let newOrder = []
-//         let newUnassigned = [...unassigned]
-//         for (let i = 0; i < props.teams.length; i++) {
-//             if (order[i] != chosenID) {
-//                 newOrder[i] = order[i]
-//             } else {
-//                 newUnassigned.push(order[i])
-//             }
-//         }
-//         setOrder(newOrder)
-//         setUnassigned(newUnassigned)
-//     }
-
-//     if (loading) {
-//         return <div>loading...</div>
-//     }
-
-//     //Far from ideal, but we'll have the user chose between generating a Random order, or assigning the slots
-//     //for each team.  Each unassigned slot will have the pick number followed by a select containing each team
-//     //not yet assigned to another slot.  When a user has assigned all teams (by locking their draft position),
-//     //the 'set order' submit button will become enabled, allowing the user to submit the order for the server.
-//     // if (order.some(t => t === null || t === undefined)) {
-//         return(
-//             <div>
-//                 <h1>Set draft order</h1>
-//                 <button onClick={generateRandomOrder}>Generate Random Order</button>
-
-//                 <div>--OR-- *this should collapse or smth*</div>
-//                 <form onSubmit={setOrderServerside}>
-//                 {order.map((_, i) => {
-//                     <SelectDistinct
-//                     unassigned={unassigned}
-//                     slot={i+1}
-//                     order={order}
-//                     lock={lockSlot}
-//                     unlock={unlockSlot}/>
-//                 })}
-//                 {unassigned.length > 0
-//                 ? <button type="submit" disabled>Set Order!</button>
-//                 : <button type="submit">Set Order!</button>}
-
-//                 </form>
-//             </div>
-
-//         )
-//     // }
-
-//     // return(
-//     //     <div>
-//     //         <ol>
-//     //             {order.map(o => <li>{o.Slot} - {o.team.name} Manager: {o.team.Manager.Name}</li>)}
-//     //         </ol>
-//     //     </div>
-//     // )
-// }
-
-// //So the idea here is we want to select a distinct team for each slot.  We'll pass our list of unassigned
-// //teams, along with the team select (if exists).
-// function SelectDistinct(props) {
-//     const [locked, setLocked] = useState(false)
-
-//     useEffect(() => {
-//         if (props.order[props.slot - 1] != null) {
-//             setLocked(true)
-//         }
-//     }, []);
-
-//     if (locked) {
-//         return(
-//             <div>
-//                 <p> #{props.slot} Pick: {props.order[props.slot].Team} - {props.order[props.slot].Manager.name}</p>
-//             </div>
-//         )
-//     } else {
-//         return(
-//             <div>
-//                 <label for={"draft_order_" + i}>#{i+1} Pick</label>
-//                 <select id={"draft_order_" + i}>
-//                     {props.unassigned.map(t => <option value={t.ID}>{t.Name} - {t.Manager.Name}</option>)}
-//                 </select>
-//                 <button onClick={lockSlot} id={"draft_order_lock_" + i}>Lock Draft Position</button>
-//             </div>
-//         )
-//     }
-// }
