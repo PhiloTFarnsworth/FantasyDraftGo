@@ -50,19 +50,19 @@ function App () {
     return <div>Loading...</div>
   } else {
     return (
-            <React.StrictMode>
-            <UserContext.Provider value={user}>
-                <NotifyContext.Provider value={notify}>
-                    <div className="container p-2" style={{ minHeight: '100vh' }}>
-                        <Header />
-                        <Notify note={notification} onClick={clearNote} />
-                        {user.ID === 0 // Guest view or lobby
-                          ? <UnregisteredLobby handleUserChange={handleUserChange} />
-                          : <Lobby />}
-                    </div>
-                </NotifyContext.Provider>
-            </UserContext.Provider>
-            </React.StrictMode>
+      <React.StrictMode>
+        <UserContext.Provider value={user}>
+          <NotifyContext.Provider value={notify}>
+            <div className="container p-2" style={{ minHeight: '100vh' }}>
+              <Header />
+              <Notify note={notification} onClick={clearNote} />
+              {user.ID === 0 // Guest view or lobby
+                ? <UnregisteredLobby handleUserChange={handleUserChange} />
+                : <Lobby />}
+            </div>
+          </NotifyContext.Provider>
+        </UserContext.Provider>
+      </React.StrictMode>
     )
   }
 }

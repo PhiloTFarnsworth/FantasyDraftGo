@@ -53,4 +53,8 @@ input[type=range] {
   border-radius: 10em;
 }
 
+input, select {
+  box-shadow: 2px 2px 4px 1px rgba(0, 0, 0, 0.445);
+}
+
 /*# sourceMappingURL=app.css.map */

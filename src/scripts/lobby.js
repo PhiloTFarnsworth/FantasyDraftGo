@@ -13,14 +13,14 @@ function Lobby () {
 
   if (leagueID !== 0) {
     return (
-      <div className='bg-white p-2 m-2'>
+      <div className='bg-white p-2 m-2' style={{ minHeight: '80vh' }}>
         <LeagueHome openLeague={setLeagueID} ID={leagueID} />
       </div>
     )
   }
 
   return (
-    <div className='bg-white p-2 m-2 text-center'>
+    <div className='bg-white p-2 m-2 text-center' style={{ minHeight: '80vh' }}>
       <h1 className='display-4 text-capitalize'>{User.name} Dashboard</h1>
       <div className='row'>
         <LeagueWizard openLeague={setLeagueID} />
@@ -227,15 +227,15 @@ function LeagueWizard (props) {
 
   if (!open) {
     return (
-            <div>
+            <div className='d-grid'>
                 <button className='btn btn-success' onClick={toggleFocus}>Create a New League</button>
             </div>
     )
   }
   return (
     <div>
-      <div className='d-flex justify-content-end'>
-        <button className='btn-close btn-close' onClick={toggleFocus}></button>
+      <div className='d-grid'>
+        <button className='btn btn-danger btn-sm' onClick={toggleFocus}>Close League Wizard</button>
       </div>
       <h2 className='display-5'>Create a League!</h2>
       <form onSubmit={createLeague}>
@@ -251,7 +251,9 @@ function LeagueWizard (props) {
           <input name="teamName" id='teamName' type='text' className='form-control' onChange={handleTeamName} placeholder='Name Your Team!' required/>
           <label htmlFor='teamName' >Name Your Team!</label>
         </div>
-          <button className='btn btn-success' type='submit'> Start Draft! </button>
+          <div className='d-grid'>
+            <button className='btn btn-success' type='submit'> Create League! </button>
+          </div>
       </form>
     </div>
   )
