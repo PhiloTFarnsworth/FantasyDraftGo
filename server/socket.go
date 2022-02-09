@@ -54,11 +54,13 @@ type subscription struct {
 //We'll keep message from the example for our chat.
 type message struct {
 	data []byte
+	User int64
 	room string
 }
 
 type chat struct {
 	Kind    string
+	User    int64
 	Payload string
 }
 
@@ -147,7 +149,7 @@ func (s subscription) readPump(h hub) {
 		switch decoded.Kind {
 		case "message":
 			//Cut off the quotes from Payload and pass as a message.
-			m := message{[]byte(decoded.Payload[1 : len(decoded.Payload)-1]), s.room}
+			m := message{[]byte(decoded.Payload[1 : len(decoded.Payload)-1]), s.conn.user, s.room}
 			h.broadcast <- m
 		case "pick":
 			var n struct {
@@ -287,7 +289,7 @@ func (h *hub) run() {
 				}
 			}
 		case m := <-h.broadcast:
-			p := chat{Kind: "chat", Payload: string(m.data[:])}
+			p := chat{Kind: "chat", User: m.User, Payload: string(m.data[:])}
 			b, err := json.Marshal(p)
 			if err != nil {
 				fmt.Println(err)

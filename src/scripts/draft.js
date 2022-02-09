@@ -16,6 +16,9 @@ function Draft (props) {
   const [currentPick, setCurrentPick] = useState(0)
   const [userStatus, setUserStatus] = useState([])
   const [loading, setLoading] = useState(true)
+  const [chat, setChat] = useState([])
+  const [smacks, setSmacks] = useState([])
+  const [lastMessage, setLastMessage] = useState('')
   const draftSocket = useRef(null)
   const User = useContext(UserContext)
   const Notify = useContext(NotifyContext)
@@ -32,6 +35,8 @@ function Draft (props) {
             '?userID=' +
             User.ID
     )
+    const initSmack = props.teams.map(t => { return { team: t.ID, smack: '' } })
+    setSmacks(initSmack)
   }, [])
 
   // we wait for draftPool and DraftHistory to be filled, then load the page
@@ -107,10 +112,10 @@ function Draft (props) {
             Notify(props.teams.find(t => t.ID === data.Team).Name + ' has selected ' + draftPool.find(p => p.ID === data.Player).Name, 1)
             break }
           case 'chat': {
-            const item = document.createElement('div')
-            item.innerHTML = e.data
-            const chat = document.getElementById('fakechat')
-            chat.appendChild(item)
+            const chatClone = [...chat]
+            const team = props.teams.find(t => t.Manager.ID === data.User)
+            chatClone.push({ team: team, message: data.Payload })
+            setChat(chatClone)
             break }
           default: {
             console.log('sent ' + data.Kind + ' message type, why did you do that?')
@@ -118,7 +123,7 @@ function Draft (props) {
         }
       }
     }
-  }, [draftSocket, draftHistory, availablePlayers, userStatus, currentPick])
+  }, [draftSocket, draftHistory, availablePlayers, userStatus, currentPick, chat])
 
   // To start, we want to fetch our draft history and draft class.  While these could be gathered from
   // our initial websocket connection or as a single request, I can see a scenario where we want to have
@@ -246,11 +251,34 @@ function Draft (props) {
       .catch(error => console.error(error))
   }
 
-  function submitChat (e) {
-    e.preventDefault()
-    // TODO: ???
-    draftSocket.current.send(JSON.stringify({ Kind: 'message', Payload: msg.value }))
+  // -- Chat Stuff --
+  // we would refactor into it's own thing but we're spending a lot of time on it as it is.
+  function submitChat (message) {
+    draftSocket.current.send(JSON.stringify({ Kind: 'message', Payload: message }))
   }
+
+  function progressChat () {
+    const tempChat = [...chat]
+    const msg = tempChat.shift()
+    // do something with msg like take the user ID, find the team, and update the value in the team order quotes.
+    setLastMessage(msg)
+  }
+
+  // Because of the vagueries of using something like a useEffect to trigger an animation and await its conclusion, we
+  // need to check when we update 'smacks'
+  useEffect(() => {
+    if (lastMessage !== '') {
+      // handle message
+      const tempChat = [...chat]
+      const tempSmacks = [...smacks]
+      tempChat.shift()
+      const newSmack = tempSmacks.find(s => s.team === lastMessage.team.ID)
+      newSmack.smack = lastMessage.message
+      setSmacks(tempSmacks)
+      setChat(tempChat)
+      setLastMessage('')
+    }
+  }, [lastMessage, smacks, chat])
 
   function submitPick (playerID) {
     const team = props.teams.find(t => t.Manager.ID === User.ID)
@@ -340,6 +368,7 @@ function Draft (props) {
             headers={statHeaders}
             tableSort={sortDraftPool}
             shiftFocus={shiftFocus} />
+          <DraftChat chat={submitChat} messages={chat} setChat={setChat} progress={progressChat}/>
         </div>
   )
 }
@@ -954,6 +983,81 @@ function SlotBox (props) {
       <div className='col-sm-2'>
         <h6 className='border-bottom border-warning'>{props.round}</h6>
         <h6>{props.pick}</h6>
+      </div>
+    </div>
+  )
+}
+
+// Since screen space is at a premium when dealing with supporting cell phone screens, I was thinking draft
+// chat would be fixed at the bottom of the screen, and be a hybrid input/display.  Instead of displaying messages
+// as a list, I was thinking we would treat them as 'reactions', and we would 'pulse' messages across the bottom area.
+// So the idea is we gather chat messages, put them in a queue, then animate those messages crawling
+// across the chat display area.  Once the animation ends, we pull the next messages on the queue, otherwise
+// we'll just replay the animation until new chat messages are submitted.  Should be good for moments someone picking
+// a kicker/defense too early, and I don't know if you miss much not being able to hold a regular discussion in a draft.
+function DraftChat (props) {
+  const [message, setMessage] = useState('')
+
+  function submit (e) {
+    e.preventDefault()
+    props.chat(message)
+    setMessage('')
+  }
+
+  function handleInput (e) {
+    e.preventDefault()
+    setMessage(e.target.value)
+  }
+
+  // using an index as a key is bad... not sure how to make these keys unique though
+  return (
+    <div className='row'>
+      <div className='col-8'>
+        {props.messages.length > 0
+          ? <ChatHighlight message={props.messages[0]} progress={props.progress} />
+          : '' }
+      </div>
+      <div className='col-4'>
+        <form className='d-grid' onSubmit={submit}>
+          <div className='form-floating'>
+            <input id='chatInput' type='text' onChange={handleInput} value={message} className='form-control' placeholder='Talk Smack!' required/>
+            <label htmlFor='chatInput'>Talk Smack!</label>
+          </div>
+          <button type='submit' className='btn btn-sm btn-info'>Chat</button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// If we're going to incorporate a transition, we want to run it on as simple a component as possible.
+function ChatHighlight (props) {
+  useEffect(() => {
+    const doAnimation = async () => {
+      const highlight = document.querySelector('#chatHighlight')
+      const anim = highlight.animate([
+        { fontSize: 'xx-small' },
+        { fontSize: 'xx-large' }
+      ], {
+        duration: 3000
+      })
+      const end = await anim.finished
+      console.log(end)
+      if (end.playState === 'finished') {
+        props.progress()
+      }
+    }
+    doAnimation()
+      .catch(error => console.error(error))
+  }, [props.message])
+
+  return (
+    <div className='row' id='chatHighlight'>
+      <div className='col-3'>
+        {props.message.team.Manager.name}
+      </div>
+      <div className='col-9'>
+        {props.message.message}
       </div>
     </div>
   )
