@@ -15,15 +15,9 @@ body{
     background-color: rgba($color: #DFDFDF, $alpha: .9);
 }
 
-
-@keyframes smackImpact{
-    0% {font-size: xx-small;}
-    50% {font-size: xx-large;}
-    100% {opacity: 0; font-size: xx-large;}
-}
-
 #chatHighlight{
-    animation: smackImpact 3s;
+    font-size: xx-large;
+    opacity: 0;
 }
 
 @media (hover: hover) {

@@ -15,7 +15,8 @@ body {
 }
 
 #chatHighlight {
-  animation: smackImpact 3s;
+  font-size: xx-large;
+  opacity: 0;
 }
 
 @media (hover: hover) {

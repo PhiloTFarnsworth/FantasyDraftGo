@@ -1,8 +1,11 @@
 'use strict'
 import React, { useState, useEffect, useRef, useContext } from 'react'
-import { UserContext, NotifyContext } from './util.js'
-const ALPHA = 'abcdefghijklmnopqrstuvwxyz'
-const ROUNDS = 15
+import { UserContext, NotifyContext, ALPHA } from './util.js'
+
+const BS_SUCCESS = '#198754aa'
+const BS_WARNING = '#ffc107aa'
+const BS_PRIMARY = '#0d6efdaa'
+const BS_SECONDARY = '#6c757daa'
 
 // History = [{Slot: int, Player: ID, Team: ID}]
 
@@ -38,7 +41,6 @@ function Draft (props) {
     const initSmack = props.teams.map(t => { return { team: t.ID, smack: '' } })
     setSmacks(initSmack)
   }, [])
-
   // we wait for draftPool and DraftHistory to be filled, then load the page
   useEffect(() => {
     if (draftPool.length > 0 && draftHistory.length > 0) {
@@ -139,10 +141,10 @@ function Draft (props) {
         setCurrentPick(history.length)
         // We'll pass an empty or incomplete list of picks.  We want to then expand the array
         // to hold all potential picks in the future.
-        if (history.length !== ROUNDS * props.teams.length) {
+        if (history.length !== props.settings.draft.Rounds * props.teams.length) {
           const snakeFirst = [...props.teams].sort((a, b) => a.Slot - b.Slot)
           const snakeSecond = [...props.teams].sort((a, b) => b.Slot - a.Slot)
-          const draftLength = ROUNDS * props.teams.length
+          const draftLength = props.settings.draft.Rounds * props.teams.length
           for (let i = history.length; i < draftLength; i++) {
             const roundPick = i % props.teams.length
             if (Math.floor(i / props.teams.length) % 2 === 0) {
@@ -336,12 +338,6 @@ function Draft (props) {
 
   return (
         <div className='text-center'>
-          <div id="fakechat">
-          </div>
-          <form onSubmit={submitChat}>
-              <input id="msg" type="text" />
-              <button type="submit">chat</button>
-          </form>
           <h1 className='display-4'>{props.league.name} Draft</h1>
           <div className='row m-2 g-1'>
             <div className='col-8'>
@@ -352,14 +348,17 @@ function Draft (props) {
                 shiftFocus={shiftFocus}
                 selectPlayer={submitPick}
                 currentPick={currentPick}
-                teams={props.teams}/>
+                teams={props.teams}
+                rounds={props.settings.draft.Rounds}/>
             </div>
             <div className='col-4' style={{ maxHeight: '30em', overflowY: 'scroll' }}>
               <DraftOrder currentPick={currentPick}
                 teams={props.teams}
                 userStatus={userStatus}
                 history={draftHistory}
-                shiftFocus={shiftFocus}/>
+                shiftFocus={shiftFocus}
+                smacks={smacks}
+                rounds={props.settings.draft.Rounds}/>
             </div>
           </div>
           <DraftPool
@@ -368,7 +367,12 @@ function Draft (props) {
             headers={statHeaders}
             tableSort={sortDraftPool}
             shiftFocus={shiftFocus} />
-          <DraftChat chat={submitChat} messages={chat} setChat={setChat} progress={progressChat}/>
+          <DraftChat
+            chat={submitChat}
+            messages={chat}
+            setChat={setChat}
+            progress={progressChat}
+            />
         </div>
   )
 }
@@ -584,7 +588,7 @@ function DraftPool (props) {
 function DraftBoard (props) {
   const User = useContext(UserContext)
 
-  if (props.currentPick >= ROUNDS * props.teams.length) {
+  if (props.currentPick >= props.rounds * props.teams.length) {
     // Draft over, display teams.
     const teamSummaries = []
     for (let i = 0; i < props.teams.length; i++) {
@@ -594,7 +598,7 @@ function DraftBoard (props) {
                                 team={props.teams[i]}
                                 roster={roster}
                                 currentPick={props.currentPick}
-                                max={ROUNDS * props.teams.length}/>)
+                                max={props.rounds * props.teams.length}/>)
     }
     return teamSummaries
   } else {
@@ -614,7 +618,7 @@ function DraftBoard (props) {
                     roster={roster}
                     shiftFocus={props.shiftFocus}
                     currentPick={props.currentPick}
-                    max={ROUNDS * props.teams.length}/>
+                    max={props.rounds * props.teams.length}/>
     }
 
     return <DraftSummary
@@ -622,7 +626,8 @@ function DraftBoard (props) {
                 currentPick={props.currentPick}
                 teams={props.teams}
                 shiftFocus={props.shiftFocus}
-                players={props.players}/>
+                players={props.players}
+                rounds={props.rounds}/>
   }
 }
 
@@ -633,8 +638,8 @@ function DraftSummary (props) {
   const [summary, setSummary] = useState([])
 
   // For spacing, we're going with 10 table heights for all draft board views, so we'll display labels, 8 picks, then navigation for Draft Summary
-  const pageLength = 8
-  const pageMax = Math.floor((ROUNDS * props.teams.length - 1) / pageLength)
+  const pageLength = 10
+  const pageMax = Math.floor((props.rounds * props.teams.length - 1) / pageLength)
 
   // Set page on load
   useEffect(() => {
@@ -643,7 +648,7 @@ function DraftSummary (props) {
 
   // Change summary on page change
   useEffect(() => {
-    const end = page * pageLength + 8 >= ROUNDS * props.teams.length ? ROUNDS * props.teams.length : page * pageLength + 8
+    const end = page * pageLength + pageLength >= props.rounds * props.teams.length ? props.rounds * props.teams.length : page * pageLength + pageLength
     setSummary(props.history.slice(page * pageLength, end))
   }, [page, props])
 
@@ -750,25 +755,16 @@ function PBio (props) {
     switch (props.player.Position) {
       case 'QB':
         if (QB.includes(key)) {
-          // Object.defineProperty(displayStats, key, {
-          //     value: value
-          // })
           displayStats.push({ key: key, value: value })
         }
         break
       case 'RB':
         if (RB.includes(key)) {
-          // Object.defineProperty(displayStats, key, {
-          //     value: value
-          // })
           displayStats.push({ key: key, value: value })
         }
         break
       default:
         if (WR.includes(key)) {
-          // Object.defineProperty(displayStats, key, {
-          //     value: value
-          // })
           displayStats.push({ key: key, value: value })
         }
         break
@@ -777,7 +773,7 @@ function PBio (props) {
 
   return (
         <div>
-            <table className='table table-responsive table-sm'>
+            <table className='table table-responsive table'>
                 <thead>
                     <tr>
                         <td colSpan='4'>
@@ -800,7 +796,7 @@ function PBio (props) {
                 </thead>
                 <tbody className='text-center'>{ displayStats.map(s =>
                         <tr key={s.key + '_bio'}>
-                            <th>{s.key}</th><td>{s.value}</td><td colSpan='2'></td>
+                            <th colSpan={2}>{s.key}</th><td colSpan={2}>{s.value}</td>
                         </tr>
                 )}
                 </tbody>
@@ -812,8 +808,8 @@ function PBio (props) {
                         <td colSpan='4'>
                         <div className='d-grid gap-2'>
                         {props.teamControl.ID === props.drafting
-                          ? <button className='btn btn-success btn-sm' id={props.player.ID} onClick={handleSelection}>Draft</button>
-                          : <button className='btn btn-light btn-sm' id={props.player.ID} onClick={handleSelection} disabled>Draft</button>}
+                          ? <button className='btn btn-success btn-lg' id={props.player.ID} onClick={handleSelection}>Draft</button>
+                          : <button className='btn btn-light btn-lg' id={props.player.ID} onClick={handleSelection} disabled>Draft</button>}
                         </div>
                         </td>
                     </tr>
@@ -866,7 +862,7 @@ function TeamSummary (props) {
   // let max = Math.max(qbs.length, rbs.length, wrs.length, tes.length)
 
   return (
-            <table className='table table-responsive table-sm text-center'>
+            <table className='table table-responsive table text-center'>
                 <thead>
                 {props.currentPick < props.max
                   ? <tr><td colSpan='5'><div className='d-grid gap-2'>
@@ -907,18 +903,13 @@ function TeamSummary (props) {
 // Draft order to hold our chat as well.  Instead of an text area, we'll give each team a little conversation balloon within the
 // draft order component that will display their latest X messages.
 function DraftOrder (props) {
-  const BS_SUCCESS = '#198754aa'
-  const BS_WARNING = '#ffc107aa'
-  const BS_PRIMARY = '#0d6efdaa'
-  const BS_SECONDARY = '#6c757daa'
-
   function HandleFocus (e) {
     e.preventDefault()
     const chosen = props.teams.find(t => t.ID === parseInt(e.currentTarget.attributes.team.value))
     props.shiftFocus({ context: 'team', focusable: chosen })
   }
 
-  const draftMax = props.teams.length * ROUNDS
+  const draftMax = props.teams.length * props.rounds
   const draftData = []
 
   if (props.userStatus === []) {
@@ -967,7 +958,12 @@ function DraftOrder (props) {
           </div>
           {draftData.map(data =>
           <div key={data.team.Name + 'order' + data.round + data.pick} onClick={HandleFocus} team={data.team.ID}>
-              <SlotBox pick={data.pick} round={data.round} team={data.team} highlight={data.highlight}/>
+              <SlotBox
+                pick={data.pick}
+                round={data.round}
+                team={data.team}
+                highlight={data.highlight}
+                smack={props.smacks.find(s => s.team === data.team.ID)}/>
           </div>)}
         </div>
   )
@@ -978,7 +974,9 @@ function SlotBox (props) {
     <div className='row p-2 rounded-3' style={{ backgroundColor: props.highlight }}>
       <div className='col'>
         <h6>{props.team.Name}</h6>
-        <p className='overflow-hidden mb-1 rounded-3 bg-white' style={{ maxHeight: '2em' }}>draft chat smack</p>
+        <p className='overflow-hidden mb-1 rounded-3 bg-white text-break' style={{ maxHeight: '3em' }}>
+          {props.smack.smack !== '' ? props.smack.smack : 'Talk Some Smack!'}
+        </p>
       </div>
       <div className='col-sm-2'>
         <h6 className='border-bottom border-warning'>{props.round}</h6>
@@ -1009,10 +1007,9 @@ function DraftChat (props) {
     setMessage(e.target.value)
   }
 
-  // using an index as a key is bad... not sure how to make these keys unique though
   return (
-    <div className='row'>
-      <div className='col-8'>
+    <div className='row position-sticky bottom-0 p-2' style={{ minWidth: '100%', maxHeight: '8em', backgroundColor: '#198754d0' }}>
+      <div className='col-8 bg-white text-center'>
         {props.messages.length > 0
           ? <ChatHighlight message={props.messages[0]} progress={props.progress} />
           : '' }
@@ -1036,10 +1033,11 @@ function ChatHighlight (props) {
     const doAnimation = async () => {
       const highlight = document.querySelector('#chatHighlight')
       const anim = highlight.animate([
-        { fontSize: 'xx-small' },
-        { fontSize: 'xx-large' }
+        { fontSize: 'xx-small', opacity: 1 },
+        { fontSize: 'xx-large', opacity: 1, offset: 0.8 },
+        { fontSize: 'xx-large', opacity: 0 }
       ], {
-        duration: 3000
+        duration: 2500
       })
       const end = await anim.finished
       console.log(end)
@@ -1052,14 +1050,14 @@ function ChatHighlight (props) {
   }, [props.message])
 
   return (
-    <div className='row' id='chatHighlight'>
-      <div className='col-3'>
-        {props.message.team.Manager.name}
+      <div className='row mt-3' id='chatHighlight'>
+        <div className='col-3'>
+          <p className='mb-0 text-break'>{props.message.team.Manager.name}:</p>
+        </div>
+        <div className='col-9'>
+          <p className='mb-0 text-break'>{props.message.message}</p>
+        </div>
       </div>
-      <div className='col-9'>
-        {props.message.message}
-      </div>
-    </div>
   )
 }
 

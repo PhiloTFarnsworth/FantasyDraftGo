@@ -1202,6 +1202,8 @@ func setDraftSettings(c *gin.Context) {
 		return
 	}
 
+	// If they somehow get past the front end with more rounds than positions, we'll set rounds
+	// to the total number of open positions.
 	var rounds int
 	if f.D.Rounds > f.P.CountPositions() {
 		rounds = f.P.CountPositions()
@@ -1261,42 +1263,6 @@ type order struct {
 	Team int64
 	Slot int64
 }
-
-//Stand alone editing for draft Order.  We're going to skip allowing users to define their
-//own order for the time being, but maybe circle back later and add this
-// func setDraftOrder(c *gin.Context) {
-// 	db := store.GetDB()
-
-// 	_, err := strconv.ParseInt(c.Param("ID"), 10, 64)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-// 		return
-// 	}
-
-// 	var d []order
-// 	if err := c.BindJSON(&d); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-// 		return
-// 	}
-
-// 	tx, err := db.Begin()
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-// 		return
-// 	}
-// 	defer tx.Rollback()
-// 	for _, slot := range d {
-// 		_, err = tx.Exec("UPDATE teams_"+c.Param("ID")+" SET slot=? WHERE ID=? ", slot.Slot, slot.Team)
-// 		if err != nil {
-// 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-// 			return
-// 		}
-// 	}
-// 	if err = tx.Commit(); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "ok": false})
-// 		return
-// 	}
-// }
 
 //While we have a time for the draft to start, I think it's cromulent to actually have the commissioner
 //manually start the draft.  I see the time provided in settings as more of a suggestion, as this allows

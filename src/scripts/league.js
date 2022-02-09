@@ -27,6 +27,7 @@ import React, { useState, useEffect, useContext } from 'react'
 function LeagueHome (props) {
   const [leagueProps, setLeagueProps] = useState({ ID: 0, name: '', state: '', maxOwner: 0, kind: '' })
   const [commissioner, setCommissioner] = useState({ ID: 0, name: '', email: '' })
+  const [settings, setSettings] = useState({ draft: {}, positional: {}, scoring: {} })
   const [teams, setTeams] = useState([])
   const [invites, setInvites] = useState([])
   const [openSpots, setOpenSpots] = useState(0)
@@ -59,14 +60,23 @@ function LeagueHome (props) {
         }
         setCommissioner(data.league.Commissioner)
         setLeagueProps({ ID: data.league.ID, name: data.league.Name, state: data.league.State, maxOwner: data.league.MaxOwner, kind: data.league.Kind })
+        // I should really just combine these on the backend.
+        const url = '/league/settings/getdraft/' + data.league.ID
+        const setResponse = await fetch(url, { method: 'GET' })
+        const setData = await setResponse.json()
+
+        if (response.ok) {
+          setSettings(setData)
+        } else {
+          Notify('Bad Request', 0)
+        }
       } else {
         Notify(data, 0)
       }
     }
 
     fetchData()
-      .catch(error => console.log('fail:', error))
-    setLoading(false)
+      .catch(error => console.error(error))
   }, [])
 
   useEffect(() => {
@@ -80,6 +90,12 @@ function LeagueHome (props) {
       setOpenSpots(leagueProps.maxOwner - count)
     }
   }, [leagueProps])
+
+  useEffect(() => {
+    if (Object.keys(settings.draft).length > 0) {
+      setLoading(false)
+    }
+  }, [settings])
 
   function closeLeague () {
     props.openLeague(0)
@@ -204,11 +220,11 @@ function LeagueHome (props) {
                 <button className='btn btn-lg btn-success' onClick={startDraft}>Start Draft</button>
               </div>
             : ''}
-          <DraftSettings league={leagueProps.ID} commissioner={commissioner} />
+          <DraftSettings league={leagueProps.ID} commissioner={commissioner} settings={settings} setSettings={setSettings}/>
         </div>
       )
     case 'DRAFT':
-      return <Draft league={leagueProps} teams={teams} />
+      return <Draft league={leagueProps} teams={teams} settings={settings}/>
     default:
       return null
   }
@@ -417,7 +433,6 @@ function LeagueSettings (props) {
 // categories.  Draft settings is pretty simple.  We'll present a "kind" selection, which will toggle between two set
 // defaults, and if the user selects custom they can have access to all the options in the table.
 function DraftSettings (props) {
-  const [settings, setSettings] = useState({ draft: {}, positional: {}, scoring: {} })
   const [loading, setLoading] = useState(true)
   const [dForm, setDForm] = useState([])
   const [pForm, setPForm] = useState([])
@@ -432,27 +447,10 @@ function DraftSettings (props) {
   // And we need to identify our keys for draft and positional.
 
   useEffect(() => {
-    const fetchData = async () => {
-      const url = '/league/settings/getdraft/' + props.league
-      const response = await fetch(url, { method: 'GET' })
-      const data = await response.json()
-
-      if (response.ok) {
-        setSettings(data)
-      } else {
-        Notify('Bad Request', 0)
-      }
-    }
-
-    fetchData()
-      .catch(error => console.error(error))
-  }, [])
-
-  useEffect(() => {
     formDraft()
     formPos()
     formScore()
-  }, [settings])
+  }, [props.settings])
 
   useEffect(() => {
     if (dForm.length > 0 && pForm.length > 0 && sForm.length > 0) {
@@ -463,11 +461,11 @@ function DraftSettings (props) {
   function handleChange (e) {
     e.preventDefault()
     // This should work because settings contains no references.
-    const newSettings = Object.assign({}, settings)
+    const newSettings = Object.assign({}, props.settings)
     const key = e.target.id.split('_')
 
     if (e.target.name.startsWith('Time')) {
-      const current = settings[key[0]].Time.split('T')
+      const current = props.settings[key[0]].Time.split('T')
       if (e.target.name === 'Time_date') {
         newSettings[key[0]].Time = e.target.value + 'T' + current[1] + ':00Z'
       } else {
@@ -486,11 +484,24 @@ function DraftSettings (props) {
       }
     }
 
-    setSettings(newSettings)
+    props.setSettings(newSettings)
   }
 
   function submit (e) {
     e.preventDefault()
+    // check that there aren't more rounds than positions on team.
+    let positions = 0
+    for (let i = 0; i < Object.keys(props.settings.positional).length; i++) {
+      const placeholder = Object.values(props.settings.positional)[i]
+      if (!isNaN(placeholder)) {
+        positions = positions + placeholder
+      }
+    }
+    if (positions < props.settings.draft.Rounds) {
+      Notify('More Rounds than open team positions, please lower rounds or add more positions', 0)
+      return null
+    }
+
     const fetchData = async () => {
       const response = await fetch('/league/settings/setdraft/' + props.league, {
         method: 'POST',
@@ -498,7 +509,7 @@ function DraftSettings (props) {
           'X-CSRF-TOKEN': csrftoken,
           'Content-Type': 'Application/json'
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(props.settings)
       })
       const data = await response.json()
 
@@ -522,7 +533,7 @@ function DraftSettings (props) {
 
   function formPos () {
     const protoForm = []
-    Object.entries(settings.positional).forEach(([key, value]) => {
+    Object.entries(props.settings.positional).forEach(([key, value]) => {
       if (key === 'Kind') {
         protoForm.push(
           <div key={'positional_' + key} className='form-floating'>
@@ -564,7 +575,7 @@ function DraftSettings (props) {
 
   function formDraft () {
     const protoForm = []
-    Object.entries(settings.draft).forEach(([key, value]) => {
+    Object.entries(props.settings.draft).forEach(([key, value]) => {
       switch (findInputType(key)) {
         case 'select': {
           let selectMeat
@@ -715,7 +726,7 @@ function DraftSettings (props) {
   function formScore () {
     const protoForm = []
     let iHead = 0
-    Object.entries(settings.scoring).forEach(([key, value]) => {
+    Object.entries(props.settings.scoring).forEach(([key, value]) => {
       protoForm.push(<div className='row mb-1 pt-1 text-capitalize text-white border-top border-warning border-4'><h4>{key}</h4></div>)
       Object.entries(value).forEach(([key2, value2]) => {
         // Quick and dirty, we'll create individual headers for each type of stat, which will allow us to trim
