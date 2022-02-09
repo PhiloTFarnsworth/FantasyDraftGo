@@ -5,7 +5,6 @@ const anonymousUser = { ID: 0, name: '', email: '' }
 export const UserContext = React.createContext(anonymousUser)
 export const NotifyContext = React.createContext(null)
 export const csrftoken = document.getElementById('CSRFToken').textContent
-
 function Notify (props) {
   if (props.note.message === null) {
     return null

@@ -34,15 +34,16 @@ function Draft (props) {
     )
   }, [])
 
-  // // the first rule of building something is getting it to work.  For now, we check if draftpool and
-  // // drafthistory have been set, then we'll render the draft
+  // we wait for draftPool and DraftHistory to be filled, then load the page
   useEffect(() => {
     if (draftPool.length > 0 && draftHistory.length > 0) {
       setLoading(false)
     }
   }, [draftPool, draftHistory])
 
-  // // Finally we need to trim the draft pool?  This is gonna need a think.
+  // Finally, since I was getting funky results doing this in the above useEffect, we'll wait for loading
+  // to get updated, which by then we should be reasonably sure that draftPool and DraftHistory have actually
+  // been set in state.
   useEffect(() => {
     // remove drafted players from draft pool
     const pool = [...availablePlayers]
@@ -155,6 +156,39 @@ function Draft (props) {
       .catch(error => console.error(error))
   }
 
+  // Again, there's probably a way we can derive this from the database and use our string mangler in
+  // FetchDraftPool to display these, but for now this is expedient.
+  const abbreviations = {
+    ID: 'ID',
+    Name: 'Name',
+    PfbrName: 'PN',
+    Team: 'Team',
+    Position: 'Pos',
+    Age: 'Age',
+    Games: 'GP',
+    Starts: 'GS',
+    PassCompletions: 'Comp',
+    PassAttempts: 'Att',
+    PassYards: 'Yd',
+    PassTouchdowns: 'Td',
+    PassInterceptions: 'Int',
+    RushAttempts: 'Att',
+    RushYards: 'Yd',
+    RushTouchdowns: 'Td',
+    Targets: 'Tar',
+    Receptions: 'Rec',
+    ReceivingYards: 'Yd',
+    ReceivingTouchdowns: 'Td',
+    Fumbles: 'Fmb',
+    FumblesLost: 'FmbL',
+    AllTouchdowns: 'Td',
+    TwoPointConversion: 'Tpc',
+    TwoPointPass: 'Tpp',
+    FantasyPoints: 'Fp',
+    PointPerReception: 'Ppr',
+    ValueBased: 'Vbd'
+  }
+
   function fetchDraftPool () {
     const fetchData = async () => {
       const response = await fetch('/draftpool', { method: 'GET' })
@@ -172,13 +206,11 @@ function Draft (props) {
               // abbreviation along with the full name.  Our database structure is a little different
               // from our python implementation (mostly trying to find a sweet spot on how verbose to
               // be in the database + the different rules for marshalling objects into json).
-              let abbreviation = ''
               let verbose = ''
               const indices = []
               for (let k = 0; k < rawHeaders[j].length; k++) {
                 // Not a huge fan of this, but it will work for english.
                 if (rawHeaders[j].charAt(k) === rawHeaders[j].charAt(k).toUpperCase()) {
-                  abbreviation = abbreviation.concat(rawHeaders[j].charAt(k))
                   indices.push(k)
                 }
               }
@@ -198,7 +230,7 @@ function Draft (props) {
                   }
                 }
               }
-              headers.push({ verbose: verbose, abbreviation: abbreviation, raw: rawHeaders[j] })
+              headers.push({ verbose: verbose, abbreviation: abbreviations[rawHeaders[j]], raw: rawHeaders[j] })
             }
           }
         }
@@ -275,35 +307,40 @@ function Draft (props) {
   }
 
   return (
-        <div>
-        <div id="fakechat">
-
-        </div>
-        <form onSubmit={submitChat}>
-            <input id="msg" type="text" />
-            <button type="submit">chat</button>
-        </form>
-        <DraftBoard
-            focus={boardFocus}
-            history={draftHistory}
-            players={draftPool}
-            shiftFocus={shiftFocus}
-            selectPlayer={submitPick}
-            currentPick={currentPick}
-            teams={props.teams}/>
-        <DraftPool
+        <div className='text-center'>
+          <div id="fakechat">
+          </div>
+          <form onSubmit={submitChat}>
+              <input id="msg" type="text" />
+              <button type="submit">chat</button>
+          </form>
+          <h1 className='display-4'>{props.league.name} Draft</h1>
+          <div className='row m-2 g-1'>
+            <div className='col-8'>
+              <DraftBoard
+                focus={boardFocus}
+                history={draftHistory}
+                players={draftPool}
+                shiftFocus={shiftFocus}
+                selectPlayer={submitPick}
+                currentPick={currentPick}
+                teams={props.teams}/>
+            </div>
+            <div className='col-4' style={{ maxHeight: '30em', overflowY: 'scroll' }}>
+              <DraftOrder currentPick={currentPick}
+                teams={props.teams}
+                userStatus={userStatus}
+                history={draftHistory}
+                shiftFocus={shiftFocus}/>
+            </div>
+          </div>
+          <DraftPool
             players={draftPool}
             available={availablePlayers}
             headers={statHeaders}
             tableSort={sortDraftPool}
             shiftFocus={shiftFocus} />
-        <DraftOrder currentPick={currentPick}
-            teams={props.teams}
-            userStatus={userStatus}
-            history={draftHistory}
-            shiftFocus={shiftFocus}/>
         </div>
-
   )
 }
 
@@ -355,9 +392,11 @@ function DraftPool (props) {
   const [recSpan, setRecSpan] = useState(1)
   const [fantSpan, setFantSpan] = useState(2)
   const [generalSpan, setGeneralSpan] = useState(2)
+  const [sorted, setSorted] = useState('ValueBased')
 
   const HandleSort = (e) => {
     e.preventDefault()
+    setSorted(e.currentTarget.id)
     props.tableSort(e.currentTarget.id)
   }
 
@@ -427,8 +466,16 @@ function DraftPool (props) {
         <div className='table-responsive overflow-auto'>
         <table className='table table-bordered border-success table-hover table-sm text-center'>
             <caption>Draft Pool</caption>
+            <colgroup>
+              {props.headers.map(h => {
+                if (expandables.includes(h.raw)) {
+                  return h.raw !== sorted ? <col/> : <col className='bg-warning'/>
+                }
+                return null
+              })}
+            </colgroup>
             <thead>
-                <tr>
+                <tr className='bg-warning'>
                     <td colSpan={generalSpan}>
                         <div className='d-grid gap-2'>
                             <button className='btn btn-success btn-sm' onClick={expandStats} id='general_x'> General </button>
@@ -465,7 +512,11 @@ function DraftPool (props) {
                         return null
                       } else {
                         if (expandables.includes(header.raw)) {
-                          return <th key={header.raw + '_key'} scope='col'><div className='d-grid gap-2'><button className="btn btn-warning btn-sm" id={header.raw} onClick={HandleSort}>{header.abbreviation}</button></div></th>
+                          return <th key={header.raw + '_key'} scope='col'>
+                            <div className='d-grid gap-2'>
+                              <button className="btn btn-warning btn-sm" id={header.raw} onClick={HandleSort}>{header.abbreviation}</button>
+                            </div>
+                            </th>
                         } else {
                           return null
                         }
@@ -822,25 +873,15 @@ function TeamSummary (props) {
   )
 }
 
-function SlotBox (props) {
-  return (
-        <table className='table-responsive' style={{ background: props.highlight }}>
-            <thead>
-                <tr><td colSpan='3'>{props.team.Name}</td></tr>
-            </thead>
-            <tbody>
-                <tr><td>{props.round}</td><td>-</td><td>{props.pick}</td></tr>
-            </tbody>
-        </table>
-  )
-}
 // What we want here is a bar across the bottom which both indicates who is in the draft as well as who is on the clock to make
-// a pick.
+// a pick.  Since discourse in a fantasy draft sin't necessarily conducive to drawn out conversations, I think we should hijack
+// Draft order to hold our chat as well.  Instead of an text area, we'll give each team a little conversation balloon within the
+// draft order component that will display their latest X messages.
 function DraftOrder (props) {
-  const BS_SUCCESS = '#198754'
-  const BS_WARNING = '#ffc107'
-  const BS_PRIMARY = '#0d6efd'
-  const BS_SECONDARY = '#6c757d'
+  const BS_SUCCESS = '#198754aa'
+  const BS_WARNING = '#ffc107aa'
+  const BS_PRIMARY = '#0d6efdaa'
+  const BS_SECONDARY = '#6c757daa'
 
   function HandleFocus (e) {
     e.preventDefault()
@@ -848,8 +889,7 @@ function DraftOrder (props) {
     props.shiftFocus({ context: 'team', focusable: chosen })
   }
 
-  const numTeams = props.teams.length
-  const draftMax = numTeams * ROUNDS
+  const draftMax = props.teams.length * ROUNDS
   const draftData = []
 
   if (props.userStatus === []) {
@@ -859,9 +899,9 @@ function DraftOrder (props) {
   if (props.currentPick >= draftMax) {
     return null
   }
-  for (let i = props.currentPick; i < props.currentPick + 5; i++) {
-    const round = Math.floor(i / numTeams) + 1
-    const pick = (i % numTeams) + 1
+  for (let i = props.currentPick; i < props.currentPick + props.teams.length + 16; i++) {
+    const round = Math.floor(i / props.teams.length) + 1
+    const pick = (i % props.teams.length) + 1
     let highlight = ''
     const teamID = props.history[i].Team
     const user = props.userStatus.find(u => u.ID === teamID)
@@ -884,14 +924,38 @@ function DraftOrder (props) {
   }
 
   return (
-        <div className='draftBar'>
-            <div className='orderRow'>
-                    {draftData.map(data =>
-                    <div className='orderCol' key={data.team.Name + 'order' + data.round + data.pick} onClick={HandleFocus} team={data.team.ID}>
-                        <SlotBox pick={data.pick} round={data.round} team={data.team} highlight={data.highlight}/>
-                        </div>)}
+        <div className='text-center bg-warning rounded-3 m-2 p-2'>
+          <div className='row'>
+            <div className='col'>
+              <h4>Draft Order</h4>
             </div>
+            <div className='col-sm-4 fw-lighter fst-italic overflow-hidden'>
+              <h6 className='border-bottom border-success'>Round</h6>
+              <h6 >Pick</h6>
+            </div>
+            <div>
+            </div>
+          </div>
+          {draftData.map(data =>
+          <div key={data.team.Name + 'order' + data.round + data.pick} onClick={HandleFocus} team={data.team.ID}>
+              <SlotBox pick={data.pick} round={data.round} team={data.team} highlight={data.highlight}/>
+          </div>)}
         </div>
+  )
+}
+
+function SlotBox (props) {
+  return (
+    <div className='row p-2 rounded-3' style={{ backgroundColor: props.highlight }}>
+      <div className='col'>
+        <h6>{props.team.Name}</h6>
+        <p className='overflow-hidden mb-1 rounded-3 bg-white' style={{ maxHeight: '2em' }}>draft chat smack</p>
+      </div>
+      <div className='col-sm-2'>
+        <h6 className='border-bottom border-warning'>{props.round}</h6>
+        <h6>{props.pick}</h6>
+      </div>
+    </div>
   )
 }
 

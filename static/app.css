@@ -19,35 +19,6 @@ body {
     background: #787878;
   }
 }
-.draftBar {
-  background-color: grey;
-  width: 100vw;
-  max-height: 8vw;
-  overflow-x: scroll;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 0;
-  opacity: 95%;
-}
-.draftBar .orderRow {
-  display: inline-flex;
-}
-.draftBar .orderRow .orderCol {
-  display: grid;
-  white-space: nowrap;
-  width: 20vw;
-  min-width: 20vw;
-  outline: double;
-}
-.draftBar .orderRow .orderCol table tr th, .draftBar .orderRow .orderCol table tr td {
-  max-width: 80%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center;
-}
-
 input[type=range] {
   background-color: #198754;
   border-radius: 10em;

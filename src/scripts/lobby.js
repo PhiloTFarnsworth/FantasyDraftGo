@@ -22,7 +22,7 @@ function Lobby () {
   return (
     <div className='bg-white p-2 m-2 text-center' style={{ minHeight: '80vh' }}>
       <h1 className='display-4 text-capitalize'>{User.name} Dashboard</h1>
-      <div className='row'>
+      <div className='row p-3'>
         <LeagueWizard openLeague={setLeagueID} />
       </div>
       <div className='row'>
