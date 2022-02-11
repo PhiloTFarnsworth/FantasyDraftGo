@@ -1031,13 +1031,16 @@ function DraftChat (props) {
 function ChatHighlight (props) {
   useEffect(() => {
     const doAnimation = async () => {
+      // If we start piling up messages, speed up the animations.  For now, we'll just halve the animation time
+      // when we have more than 3 messages in queue
+      const duration = props.message.length > 3 ? 1250 : 2500
       const highlight = document.querySelector('#chatHighlight')
       const anim = highlight.animate([
         { fontSize: 'xx-small', opacity: 1 },
         { fontSize: 'xx-large', opacity: 1, offset: 0.8 },
         { fontSize: 'xx-large', opacity: 0 }
       ], {
-        duration: 2500
+        duration: duration
       })
       const end = await anim.finished
       console.log(end)

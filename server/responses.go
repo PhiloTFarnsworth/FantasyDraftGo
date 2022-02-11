@@ -623,16 +623,71 @@ func LeagueHome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"league": f, "teams": teams})
 }
 
+// For now, it's really just edit team name, but in future iterations you have stuff like team colors, a linked image,
+// etc.
+func editTeamInfo(c *gin.Context) {
+	// for this, we'll need the league ID and team ID, as well as the team's new name
+	type editTeam struct {
+		League int64  `json:"league"`
+		Team   int64  `json:"team"`
+		Name   string `json:"name"`
+	}
+	session := sessions.Default(c)
+	db := store.GetDB()
+
+	var t editTeam
+	if err := c.BindJSON(&t); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	defer tx.Rollback()
+
+	// First let's check that this user is submitting this for their own team
+	var userCheck int64
+	row := tx.QueryRow("SELECT manager FROM teams_"+strconv.FormatInt(t.League, 10)+" WHERE ID=?", t.Team)
+	if err := row.Scan(&userCheck); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if userCheck != session.Get("user").(int64) {
+		c.JSON(http.StatusBadRequest, "Not authorized to edit team")
+		return
+	}
+
+	//cool, let's update team name
+	_, err = tx.Exec("UPDATE teams_"+strconv.FormatInt(t.League, 10)+" SET name=? WHERE id=?", t.Name, t.Team)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	//commit
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, "Success")
+}
+
+type Invite struct {
+	Invitee string `json:"invitee" form:"invitee"`
+	League  int64  `json:"league" form:"league"`
+}
+
 //Invite user will allow the commissioner to send invites to other users on the site, and probably eventually email unregistered
 //users to join their league.  To accomplish this, we need to get user initiating the invite, the invitee's information and the
 //league the invite points to.  We also need to verify the user making the request is the commissioner.
 func InviteUser(c *gin.Context) {
 	session := sessions.Default(c)
 	db := store.GetDB()
-	type Invite struct {
-		Invitee string `json:"invitee" form:"invitee"`
-		League  int64  `json:"league" form:"league"`
-	}
+
 	var v Invite
 	if err := c.BindJSON(&v); err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
@@ -681,8 +736,10 @@ func InviteUser(c *gin.Context) {
 		//to invite them to register to the site.  Otherwise, we take their ID and add an invite to their invite table.  When
 		//the invitee checks their league invites, they can find a link to create a team and join the league.
 		if err == sql.ErrNoRows {
+
 			//Set userID to 0 for unregistered user
 			userID = 0
+
 			//See if an unregistered user has already been invited to league.  We use a singular 0 user value to indicate
 			//that there exists unregistered users, then track them on the invites_0 table
 			var exists int64
@@ -694,7 +751,7 @@ func InviteUser(c *gin.Context) {
 				return
 			}
 
-			//Exists will return zero or one, depending on whether there is already an anonymous user tracked.
+			//if we have no 'Zero' user, then add one
 			if exists == 0 {
 				//add '0' user to league invites
 				_, subErr := tx.Exec("INSERT INTO league_"+
@@ -752,9 +809,112 @@ func InviteUser(c *gin.Context) {
 
 	if err = tx.Commit(); err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
 
 	c.JSON(http.StatusOK, AccountInfo{ID: userID, Name: username, Email: v.Invitee})
+}
+
+//Just do invite but DELETE FROM
+func revokeInvite(c *gin.Context) {
+	session := sessions.Default(c)
+	db := store.GetDB()
+	var revoke Invite
+	if err := c.BindJSON(&revoke); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	defer tx.Rollback()
+
+	//Check that revoker is commissioner of the league TODO: Middleware that replaces this
+	user := session.Get("user").(int64)
+	var commish int64
+	row := tx.QueryRow("SELECT commissioner FROM league WHERE ID=?", revoke.League)
+	if err := row.Scan(&commish); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	if commish != user {
+		c.JSON(http.StatusBadRequest, "Not Authorized to invite")
+		return
+	}
+
+	var userID int64
+	row = tx.QueryRow("SELECT ID FROM user WHERE email=?", revoke.Invitee)
+	// So if err, we need to check for how many anonymous invites there are to the league, and if this is the only one then we can remove
+	// the zero that marks an anonymous user.
+	if err := row.Scan(&userID); err != nil {
+		if err == sql.ErrNoRows {
+			userID = 0
+			var exists int64
+			subRow := tx.QueryRow("SELECT COUNT(user) FROM league_"+
+				strconv.FormatInt(revoke.League, 10)+
+				"_invites WHERE user=?", userID)
+			if subErr := subRow.Scan(&exists); subErr != nil {
+				c.JSON(http.StatusBadRequest, subErr.Error())
+				return
+			}
+			//If we have just one exist, then remove it.
+			if exists == 1 {
+				_, subErr := tx.Exec("DELETE FROM league_"+
+					strconv.FormatInt(revoke.League, 10)+
+					"_invites WHERE user=?", userID)
+				if subErr != nil {
+					c.JSON(http.StatusBadRequest, subErr.Error())
+					return
+				}
+				//insert the invite into our unregistered user invites.
+				_, subErr = tx.Exec("DELETE FROM invites_0 WHERE league=? AND email=?",
+					revoke.League,
+					revoke.Invitee)
+				if subErr != nil {
+					c.JSON(http.StatusBadRequest, subErr.Error())
+					return
+				}
+
+				//TODO: send email telling user invitation has been revoked (ouch)
+				if subErr = tx.Commit(); subErr != nil {
+					c.JSON(http.StatusBadRequest, subErr.Error())
+					return
+				}
+				c.JSON(http.StatusOK, "success")
+				return
+			}
+		} else {
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	//if the user does exist, just remove them from the league invites table and the league from their invites table
+	//With a user ID, we can submit that into the league_#_invites as well as to the user's league invites.
+	_, err = tx.Exec("DELETE FROM league_"+
+		strconv.FormatInt(revoke.League, 10)+
+		"_invites WHERE user=?", userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM invites_"+
+		strconv.FormatInt(userID, 10)+
+		" WHERE league=?", revoke.League)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, "success")
 }
 
 //join league will take a post request of a user's credentials and their desired league, check whether the league is already
@@ -839,6 +999,7 @@ func joinLeague(c *gin.Context) {
 
 	if err = tx.Commit(); err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
 
 	//With all that done, we can return a little thumbs up, and the component will update the league ID.
@@ -904,6 +1065,7 @@ func leagueSettings(c *gin.Context) {
 
 	if err = tx.Commit(); err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
 
 	c.JSON(http.StatusOK, s)

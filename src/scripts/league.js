@@ -1,6 +1,6 @@
 'use strict'
 import Draft from './draft.js'
-import { UserContext, NotifyContext, csrftoken } from './util.js'
+import Notify, { UserContext, NotifyContext, csrftoken } from './util.js'
 import React, { useState, useEffect, useContext } from 'react'
 // The ultimate layer is the League layer, where a user has specified a specific league
 // and is returned a portal for that league.  From here we can access all the managerial options
@@ -92,10 +92,10 @@ function LeagueHome (props) {
   }, [leagueProps])
 
   useEffect(() => {
-    if (Object.keys(settings.draft).length > 0) {
+    if (Object.keys(settings.draft).length > 0 && leagueProps.ID !== 0) {
       setLoading(false)
     }
-  }, [settings])
+  }, [settings, leagueProps])
 
   function closeLeague () {
     props.openLeague(0)
@@ -172,6 +172,14 @@ function LeagueHome (props) {
       .catch(error => console.error(error))
   }
 
+  // For the time being, we'll just take the team ID and new name, then update our teams array
+  function updateTeam (ID, name) {
+    const tempTeams = [...teams]
+    const teamEntry = tempTeams.find(t => t.ID === ID)
+    teamEntry.Name = name
+    setTeams(tempTeams)
+  }
+
   if (loading) {
     return <div>loading...</div>
   }
@@ -187,12 +195,14 @@ function LeagueHome (props) {
                     <h2 className='display-5 mb-2'>League Invitations</h2>
                     <div className='border border-warning p-1 mb-3'>
                     <h3 className='display-6 mb-2'>Teams Confirmed</h3>
-                    {teams.map(team => <TeamBox key={team.ID + '_team'} team={team} />)}
+                    {teams.map(team => <TeamBox key={team.ID + '_team'} league={leagueProps.ID} team={team} updateTeam={updateTeam}/>)}
                     </div>
                     {invites.length > 0
                       ? <div className='border border-warning p-1 mb-3'>
                           <h3 className='display-6 mb-2'>Users Invited</h3>
-                          {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner ? <InviteBox key={'invite_' + i} index={i} commissioner={commissioner} invite={invite} /> : '')}
+                          {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner
+                            ? <InviteBox key={'invite_' + i} index={i} commissioner={commissioner} invite={invite} league={leagueProps.ID} />
+                            : '')}
                         </div>
                       : ''}
                     {openSpots > 0 ? <h3 className='display-6 mb-2'>{openSpots} Slot{openSpots > 1 ? 's' : ''} Open</h3> : ''}
@@ -211,7 +221,7 @@ function LeagueHome (props) {
                     <h1 className='text-capitalize display-4 mb-2'>{leagueProps.name} League Page</h1>
           <div className='border border-warning p-1 mb-3'>
           <h2 className='display-5'>Teams</h2>
-            {teams.map(team => <TeamBox key={team.ID + '_team'} team={team} />)}
+            {teams.map(team => <TeamBox key={team.ID + '_team'} league={leagueProps.ID} team={team} updateTeam={updateTeam}/>)}
           </div>
           {User.ID === commissioner.ID
             ? <div className='d-grid'>
@@ -232,23 +242,79 @@ function LeagueHome (props) {
 
 // Team Box should be a generic view of all top end team information.
 function TeamBox (props) {
+  const [name, setName] = useState('')
+  const [edit, setEdit] = useState(false)
   const User = useContext(UserContext)
-  return (
-        <div id={props.team.ID + '_team'} className='row m-1 p-3 border-top border-warning align-items-center rounded'>
-            <div className='col border-end border-success overflow-visible'>
-              <p className='m-0'>{props.team.Name}</p>
-            </div>
-            <div className='col border-end border-success overflow-visible'>
-              <p className='m-0'>{props.team.Manager.name}</p>
-            </div>
-            <div className='col border-end border-success overflow-visible'>
-              <p className='m-0'>{props.team.Manager.email}</p>
-            </div>
-            <div className='col d-grid overflow-visible'>
-              {props.team.Manager.ID === User.ID ? <button className='btn btn-warning'>Edit Team Name</button> : ''}
-            </div>
+
+  function toggleEdit (e) {
+    e.preventDefault()
+    setEdit(!edit)
+  }
+
+  function handleChange (e) {
+    e.preventDefault()
+    setName(e.target.value)
+  }
+
+  function submit (e) {
+    e.preventDefault()
+    // fetch a post update with new name
+    const fetchData = async () => {
+      const response = await fetch('/editTeam', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ league: props.league, team: props.team.ID, name: name })
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        // then we're good
+        props.updateTeam(props.team.ID, name)
+        toggleEdit(e)
+      } else {
+        Notify(data, 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.error(error))
+  }
+
+  if (edit) {
+    return (
+      <form>
+        <div className='row'>
+          <div className='col-8 form-floating'>
+            <input className='form-control' id='teamNameEdit' type='text' value={name} onChange={handleChange} placeholder="Edit Team Name"></input>
+            <label className='form-label' htmlFor='teamNameEdit'>Edit Team Name</label>
+          </div>
+          <div className='col d-grid'>
+            <button className='btn btn-success btn-sm' onClick={submit}>Edit!</button>
+            <button className='btn btn-danger btn-sm' onClick={toggleEdit}>Cancel Edit</button>
+          </div>
         </div>
-  )
+      </form>
+    )
+  } else {
+    return (
+      <div id={props.team.ID + '_team'} className='row m-1 p-3 border-top border-warning align-items-center rounded'>
+        <div className='col border-end border-success overflow-visible'>
+          <p className='m-0'>{props.team.Name}</p>
+        </div>
+        <div className='col border-end border-success overflow-visible'>
+          <p className='m-0'>{props.team.Manager.name}</p>
+        </div>
+        <div className='col border-end border-success overflow-visible'>
+          <p className='m-0'>{props.team.Manager.email}</p>
+        </div>
+        <div className='col d-grid overflow-visible'>
+          {props.team.Manager.ID === User.ID ? <button className='btn btn-warning' onClick={toggleEdit}>Edit Team Name</button> : ''}
+        </div>
+      </div>
+    )
+  }
 }
 
 function InviteBox (props) {
@@ -290,6 +356,35 @@ function InviteBox (props) {
       .catch(error => console.error(error))
   }
 
+  function revoke (e) {
+    e.preventDefault()
+    if (User.ID !== props.commissioner.ID) {
+      Notify("Non-commissioners can't revoke invites", 0)
+      return null
+    }
+
+    const fetchData = async () => {
+      const response = await fetch('/revokeInvite', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrftoken,
+          'Content-Type': 'Application/json'
+        },
+        body: JSON.stringify({ invitee: e.target.name, league: props.league })
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        setCompleteInvite(null)
+        setInvitee('')
+      } else {
+        Notify(data, 0)
+      }
+    }
+    fetchData()
+      .catch(error => console.error(error))
+  }
+
   useEffect(() => {
     if (props.invite !== null) {
       setCompleteInvite(props.invite)
@@ -320,7 +415,7 @@ function InviteBox (props) {
          <p className='m-0'>{completeInvite.email}</p>
         </div>
         <div className='col d-grid overflow-visible'>
-          <button className='btn btn-danger btn-sm' disabled={User.ID !== props.commissioner.ID}>Revoke Invite</button>
+          <button className='btn btn-danger btn-sm' name={completeInvite.email} onClick={revoke} disabled={User.ID !== props.commissioner.ID}>Revoke Invite</button>
         </div>
       </div>
     )

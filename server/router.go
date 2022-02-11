@@ -40,6 +40,8 @@ func NewRouter() *gin.Engine {
 	r.GET("logout", logout)
 	r.POST("createleague", createLeague)
 	r.POST("invite", InviteUser)
+	r.POST("revokeInvite", revokeInvite)
+	r.POST("editTeam", editTeamInfo)
 	r.GET("leagues", getLeagues)
 	r.GET("/league/home/:ID", LeagueHome)
 	r.POST("joinleague", joinLeague)

@@ -103,7 +103,7 @@ func TestRegister(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">1</script>`) {
 		t.Errorf(`wanted <script type="text" id="userID">1</script> got %v`, w.Body.String())
@@ -176,7 +176,7 @@ func TestLogin(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
 	if !strings.Contains(w.Body.String(), `<script type="text" id="userID">1</script>`) {
 		t.Errorf(`wanted <script type="text" id="userID">1</script> got %v`, w.Body.String())
@@ -232,9 +232,9 @@ func TestGetLeagues(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
-	want := `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League"}]}`
+	want := `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League","Commissioner":"larry"}]}`
 	if w.Body.String() != want {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -279,6 +279,51 @@ func TestRegisterInvited(t *testing.T) {
 	barryClient = a
 }
 
+func TestInviteRevokeUnregistered(t *testing.T) {
+	a := larryClient
+	dairy := `{"invitee":"dairy@mail.com","league":1}`
+	w, err := postJSON(a, "/invite", dairy, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want := `{"ID":0,"name":"Unregistered","email":"dairy@mail.com"}`
+	if w.Body.String() != want {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/home/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want = `{"invites":[{"ID":5,"name":"barry","email":"barry@mail.com"},{"ID":0,"name":"dairy@mail.com","email":"dairy@mail.com"}],"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"},"Slot":0}]}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+	w, err = postJSON(a, "/revokeInvite", dairy, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	want = `"success"`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+
+}
+
 func TestGetLeaguesInvite(t *testing.T) {
 	a := barryClient
 	w := httptest.NewRecorder()
@@ -290,13 +335,14 @@ func TestGetLeaguesInvite(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
-	want := `{"invites":[{"ID":1,"Name":"All Arry League"}],"leagues":null}`
+	want := `{"invites":[{"ID":1,"Name":"All Arry League","Commissioner":"larry"}],"leagues":null}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
 	}
+
 }
 
 func TestJoinLeague(t *testing.T) {
@@ -305,6 +351,9 @@ func TestJoinLeague(t *testing.T) {
 	w, err := postJSON(a, "/joinleague", body, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
 	want := `{"ok":true}`
 	if w.Body.String() != want {
@@ -320,9 +369,9 @@ func TestJoinLeague(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("wanted http.StatusOK code got %v", w.Code)
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
-	want = `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League"}]}`
+	want = `{"invites":null,"leagues":[{"ID":1,"Name":"All Arry League","Commissioner":"larry"}]}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
@@ -386,6 +435,41 @@ func TestLeagueHome(t *testing.T) {
 	//There's probably a better way that's eluding me at the moment, but for some larger tests (like a max size league)
 	//We're going to want to compare views in a programmatic way.
 	want := `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"},"Slot":0},{"ID":2,"Name":"Barry good, Barry barry barry good","Manager":{"ID":5,"name":"barry","email":"barry@mail.com"},"Slot":0},{"ID":3,"Name":"Marry Christmas","Manager":{"ID":6,"name":"marry","email":"marry@mail.com"},"Slot":0}]}`
+	if want != w.Body.String() {
+		t.Errorf("want %v", want)
+		t.Errorf("got %v", w.Body.String())
+	}
+}
+
+func TestEditTeamInfo(t *testing.T) {
+	a := barryClient
+	body := `{"league":1, "team":2, "name":"Barry Good"}`
+	w, err := postJSON(a, "/editTeam", body, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
+	}
+	want := `"Success"`
+	if want != w.Body.String() {
+		t.Errorf("want %v got %v", want, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/league/home/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Add("Cookie", a.cookie)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	//Beyond how unwieldy this gets, we really want to track changes to this page as we have users join.
+	//There's probably a better way that's eluding me at the moment, but for some larger tests (like a max size league)
+	//We're going to want to compare views in a programmatic way.
+	want = `{"invites":null,"league":{"ID":1,"Name":"All Arry League","Commissioner":{"ID":1,"name":"larry","email":"larry@mail.com"},"State":"INIT","MaxOwner":4,"Kind":"TRAD"},"teams":[{"ID":1,"Name":"Lawrence of Arry-bia","Manager":{"ID":1,"name":"larry","email":"larry@mail.com"},"Slot":0},{"ID":2,"Name":"Barry Good","Manager":{"ID":5,"name":"barry","email":"barry@mail.com"},"Slot":0},{"ID":3,"Name":"Marry Christmas","Manager":{"ID":6,"name":"marry","email":"marry@mail.com"},"Slot":0}]}`
 	if want != w.Body.String() {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
