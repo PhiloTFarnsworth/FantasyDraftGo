@@ -923,8 +923,8 @@ function DraftOrder (props) {
     const round = Math.floor(i / props.teams.length) + 1
     const pick = (i % props.teams.length) + 1
     let highlight = ''
-    const teamID = props.history[i].Team
-    const user = props.userStatus.find(u => u.ID === teamID)
+    const team = props.teams.find(t => t.ID === props.history[i].Team)
+    const user = props.userStatus.find(u => u.ID === team.Manager.ID)
     if (i < draftMax) {
       if (i === props.currentPick) {
         highlight = BS_SUCCESS
@@ -939,7 +939,7 @@ function DraftOrder (props) {
       }
     }
     if (i < draftMax) {
-      draftData.push({ pick: pick, round: round, team: props.teams.find(t => t.ID === teamID), highlight: highlight })
+      draftData.push({ pick: pick, round: round, team: team, highlight: highlight })
     }
   }
 
