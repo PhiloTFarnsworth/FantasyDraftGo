@@ -6,8 +6,10 @@ import { test, expect } from '@playwright/test'
 //
 
 test('test', async ({ page }) => {
+  await page.goto('/')
   // Click h1:has-text("FantasyDraft")
-  await expect.locator('h1:has-text("FantasyDraft")').toHaveText('FantasyDraft')
+  const title = page.locator('h1:has-text("FantasyDraft")')
+  await expect(title).toHaveText('FantasyDraft')
 
   // Click text=Login
   await page.locator('text=Login').click()
@@ -31,10 +33,12 @@ test('test', async ({ page }) => {
   await page.locator('text=Login').click()
 
   // Click text=larry Dashboard
-  await expect.locator('text=larry Dashboard').toHaveText('larry Dashboard')
+  const dashTitle = page.locator('text=larry Dashboard')
+  await expect(dashTitle).toHaveText('larry Dashboard')
 
   // Click text=Very Arry League
-  await expect.locator('text=Very Arry League').toHaveText('Very Arry League')
+  const leagueName = page.locator('text=Very Arry League')
+  await expect(leagueName).toHaveText('Very Arry League')
 
   // Click text=Rejoin!
   await page.locator('text=Rejoin!').click()
@@ -42,5 +46,6 @@ test('test', async ({ page }) => {
   // DRAFT - Since we have randomized draft positions, we're left in a tricky position in terms
   // of what we can use codegen to do.  We'll check that the draft loads for the time being.
   // Click text=Very Arry League Draft
-  await expect.locator('text=Very Arry League Draft').toHaveText('Very Arry League Draft')
+  const draftTitle = page.locator('text=Very Arry League Draft')
+  await expect(draftTitle).toHaveText('Very Arry League Draft')
 })

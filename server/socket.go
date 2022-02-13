@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/PhiloTFarnsworth/FantasySportsAF/store"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -208,13 +209,14 @@ func serveWs(c *gin.Context, h hub) {
 		log.Println(err)
 		return
 	}
+	session := sessions.Default(c)
 	leagueID := c.Param("ID")
-	userID, err := strconv.ParseInt(c.Query("userID"), 10, 64)
+	user := session.Get("user").(int64)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	conn := &connection{send: make(chan []byte, 256), ws: ws, user: userID}
+	conn := &connection{send: make(chan []byte, 256), ws: ws, user: user}
 	s := subscription{conn, leagueID}
 	h.register <- s
 	go s.writePump()

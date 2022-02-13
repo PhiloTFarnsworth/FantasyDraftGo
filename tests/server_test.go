@@ -211,9 +211,12 @@ func TestLoginBadUser(t *testing.T) {
 func TestCreateLeague(t *testing.T) {
 	a := larryClient
 	leagueSettings := `{"maxOwner":4,"league":"All Arry League","team":"Lawrence of Arry-bia"}`
-	w, err := postJSON(a, "/createleague", leagueSettings, http.StatusOK)
+	w, err := postJSON(a, "/league/create", leagueSettings, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
 	}
 	want := `{"leagueID":1}`
 	if w.Body.String() != want {
@@ -244,7 +247,7 @@ func TestGetLeagues(t *testing.T) {
 func TestInviteUnregistered(t *testing.T) {
 	a := larryClient
 	barry := `{"invitee":"barry@mail.com","league":1}`
-	w, err := postJSON(a, "/invite", barry, http.StatusOK)
+	w, err := postJSON(a, "/league/invite", barry, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +285,7 @@ func TestRegisterInvited(t *testing.T) {
 func TestInviteRevokeUnregistered(t *testing.T) {
 	a := larryClient
 	dairy := `{"invitee":"dairy@mail.com","league":1}`
-	w, err := postJSON(a, "/invite", dairy, http.StatusOK)
+	w, err := postJSON(a, "/league/invite", dairy, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +312,7 @@ func TestInviteRevokeUnregistered(t *testing.T) {
 		t.Errorf("want %v", want)
 		t.Errorf("got %v", w.Body.String())
 	}
-	w, err = postJSON(a, "/revokeInvite", dairy, http.StatusOK)
+	w, err = postJSON(a, "/league/revokeInvite", dairy, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +351,7 @@ func TestGetLeaguesInvite(t *testing.T) {
 func TestJoinLeague(t *testing.T) {
 	a := barryClient
 	body := `{"league":1,"team":"Barry good, Barry barry barry good"}`
-	w, err := postJSON(a, "/joinleague", body, http.StatusOK)
+	w, err := postJSON(a, "/league/join", body, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +403,7 @@ func TestInviteRegistered(t *testing.T) {
 	marryClient = a
 
 	b := larryClient
-	w, err = postJSON(b, "/invite", `{"invitee":"marry@mail.com","league":1}`, http.StatusOK)
+	w, err = postJSON(b, "/league/invite", `{"invitee":"marry@mail.com","league":1}`, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +412,7 @@ func TestInviteRegistered(t *testing.T) {
 		t.Errorf("want %v got %v", want, w.Body.String())
 	}
 	body := `{"league":1,"team":"Marry Christmas"}`
-	w, err = postJSON(a, "/joinleague", body, http.StatusOK)
+	w, err = postJSON(a, "/league/join", body, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -444,7 +447,7 @@ func TestLeagueHome(t *testing.T) {
 func TestEditTeamInfo(t *testing.T) {
 	a := barryClient
 	body := `{"league":1, "team":2, "name":"Barry Good"}`
-	w, err := postJSON(a, "/editTeam", body, http.StatusOK)
+	w, err := postJSON(a, "/league/editTeam", body, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,9 +482,12 @@ func TestEditTeamInfo(t *testing.T) {
 func TestChangeSetting(t *testing.T) {
 	a := larryClient
 	newLeagueSettings := `{"league":1,"name":"Very Arry League","maxOwner":3,"kind":"TRAD"}`
-	w, err := postJSON(a, "/leaguesettings", newLeagueSettings, http.StatusOK)
+	w, err := postJSON(a, "/league/settings", newLeagueSettings, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
 	if newLeagueSettings != w.Body.String() {
 		t.Errorf("want %v got %v", newLeagueSettings, w.Body.String())
@@ -491,9 +497,12 @@ func TestChangeSetting(t *testing.T) {
 
 func TestLockLeague(t *testing.T) {
 	a := larryClient
-	w, err := postJSON(a, "/lockleague", `{"league":1}`, http.StatusOK)
+	w, err := postJSON(a, "/league/lock", `{"league":1}`, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
 	if w.Body.String() != `{"state":"PREDRAFT"}` {
 		t.Errorf(`want {"state": "PREDRAFT"} got %v`, w.Body.String())
@@ -553,7 +562,7 @@ func TestSetDraftSettings(t *testing.T) {
 
 func TestStartDraft(t *testing.T) {
 	a := larryClient
-	w, err := postJSON(a, "/startdraft", `{"league":1}`, http.StatusOK)
+	w, err := postJSON(a, "/league/startdraft", `{"league":1}`, http.StatusOK)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,6 +590,55 @@ func TestGetEmptyHistory(t *testing.T) {
 	want := "[]"
 	if w.Body.String() != want {
 		t.Errorf("want %v got %v", want, w.Body.String())
+	}
+}
+
+//Final test we're going to use to allow our automated testing to access all main league states.
+func TestFrontendSetup(t *testing.T) {
+	a := marryClient
+	b := barryClient
+
+	//First, we'll create a league for marry that is empty, using it to verify league loading in the 'INIT' state
+	leagueSettings := `{"maxOwner":2,"league":"Empty Test League","team":"Fallen Soldiers"}`
+	w, err := postJSON(a, "/league/create", leagueSettings, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
+	}
+
+	//And we'll also have barry create a league, invite marry and lock league to the league settings
+	//page
+	leagueSettings = `{"maxOwner":2,"league":"Marry Barry","team":"Barry Bostwick"}`
+	w, err = postJSON(b, "/league/create", leagueSettings, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
+	}
+	w, err = postJSON(b, "/league/invite", `{"invitee":"marry@mail.com","league":3}`, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
+	body := `{"league":3,"team":"Boysenberry"}`
+	w, err = postJSON(a, "/league/join", body, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("wanted 200 code got %v", w.Code)
+	}
+	w, err = postJSON(b, "/league/lock", `{"league":3}`, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
 	}
 }
 

@@ -104,7 +104,7 @@ function LeagueHome (props) {
   function lockLeague (e) {
     e.preventDefault()
     const fetchData = async () => {
-      const response = await fetch('/lockleague', {
+      const response = await fetch('/league/lock', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,
@@ -136,7 +136,7 @@ function LeagueHome (props) {
   function startDraft (e) {
     e.preventDefault()
     const fetchData = async () => {
-      const response = fetch('/startdraft', {
+      const response = fetch('/league/startdraft', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,
@@ -260,7 +260,7 @@ function TeamBox (props) {
     e.preventDefault()
     // fetch a post update with new name
     const fetchData = async () => {
-      const response = await fetch('/editTeam', {
+      const response = await fetch('/league/editTeam', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,
@@ -335,7 +335,7 @@ function InviteBox (props) {
       return null
     }
     const fetchData = async () => {
-      const response = await fetch('/invite', {
+      const response = await fetch('/league/invite', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,
@@ -364,7 +364,7 @@ function InviteBox (props) {
     }
 
     const fetchData = async () => {
-      const response = await fetch('/revokeInvite', {
+      const response = await fetch('/league/revokeInvite', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,
@@ -456,7 +456,7 @@ function LeagueSettings (props) {
     e.preventDefault()
     const csrftoken = document.getElementById('CSRFToken').textContent
     const fetchData = async () => {
-      const response = await fetch('/leaguesettings', {
+      const response = await fetch('/league/settings', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrftoken,

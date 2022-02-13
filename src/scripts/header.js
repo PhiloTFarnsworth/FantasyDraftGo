@@ -12,7 +12,7 @@ function Welcome (props) {
 function Header (props) {
   const User = useContext(UserContext)
   return (
-        <nav className="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
+        <nav className="navbar navbar-expand-lg navbar-dark bg-success mb-3">
             <div className='container-fluid text-center'>
                 <div className='col'>
                     <Welcome />

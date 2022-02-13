@@ -12,36 +12,43 @@ little bool to inform us if the draft is complete.  We'll also track the state o
 and give ourselves a kind which informs the type of competition this league is engaging in.
 */
 
+/*
+    Incorporating foreign keys means we want to release all our tables in order of dependencies when rebuilding
+    our testing database (or clearing our development one)
+*/
+DROP TABLE IF EXISTS invites_0;
+DROP TABLE IF EXISTS scoring_settings_special;
+DROP TABLE IF EXISTS scoring_settings_defense;
+DROP TABLE IF EXISTS scoring_settings_offense;
+DROP TABLE IF EXISTS draft_settings;
+DROP TABLE IF EXISTS positional_settings;
 DROP TABLE IF EXISTS league;
+
 CREATE TABLE league (
-    ID INT AUTO_INCREMENT NOT NULL UNIQUE,
+    ID INT AUTO_INCREMENT NOT NULL UNIQUE PRIMARY KEY,
     name VARCHAR(128) NOT NULL,
     commissioner INT NOT NULL,
     state ENUM('INIT', 'PREDRAFT', 'DRAFT', 'INPROGRESS', 'COMPLETE') DEFAULT 'INIT',
     maxOwner TINYINT NOT NULL,
-    kind ENUM('TRAD', 'TP', 'ALLPLAY', 'PIRATE', 'GUILLOTINE') DEFAULT 'TRAD',
-    primary key (`ID`)
+    kind ENUM('TRAD', 'TP', 'ALLPLAY', 'PIRATE', 'GUILLOTINE') DEFAULT 'TRAD'
 );
 
 /*
 We'll keep draft settings on it's own table.  It's only accessible for a while and it's not terribly relevant after the draft,
 so we'll more effectively resist the temptation to call for this info.
 */
-
-DROP TABLE IF EXISTS draft_settings;
 CREATE TABLE draft_settings (
     ID INT NOT NULL UNIQUE,
     kind ENUM('TRAD', 'AUCTION') DEFAULT 'TRAD',
     draftOrder ENUM('SNAKE', 'STRAIGHT', 'CURSED', 'CUSTOM') DEFAULT 'SNAKE',
     time DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
     draftClock TINYINT NOT NULL DEFAULT 0,
-    rounds TINYINT NOT NULL DEFAULT 15 
+    rounds TINYINT NOT NULL DEFAULT 15,
+    FOREIGN KEY (ID)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
-/*
-    TODO:
-        trades BOOLEAN NOT NULL DEFAULT 0 --tradable draft picks
-*/
-
 
 /*
 The same logic applies to positional settings.  We'll allow commissioners to define
@@ -49,9 +56,8 @@ how many starters a team can use at each position.  Much like draft settings, we
 these values after a draft has officially started, though we may add an option to allow commissioners to add
 a bench spot during a season.  
 */
-DROP TABLE IF EXISTS positional_settings;
 CREATE TABLE positional_settings (
-    ID TINYINT NOT NULL UNIQUE,
+    ID INT NOT NULL UNIQUE,
     kind ENUM('TRAD', 'IDP', 'CUSTOM') DEFAULT 'TRAD',
     qb TINYINT NOT NULL DEFAULT 1,
     rb TINYINT NOT NULL DEFAULT 2,
@@ -61,7 +67,11 @@ CREATE TABLE positional_settings (
     bench TINYINT NOT NULL DEFAULT 6,
     superflex TINYINT NOT NULL DEFAULT 0,
     def TINYINT NOT NULL DEFAULT 1,
-    k TINYINT NOT NULL DEFAULT 1
+    k TINYINT NOT NULL DEFAULT 1,
+    FOREIGN KEY (ID)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
 
 /*
@@ -78,8 +88,6 @@ compromise.  We're also trying to be comprehensive in what stats the user can ap
 the final implementation might be limited by what we can get, we should aspire to cover as many stats as
 possible
 */
-
-DROP TABLE IF EXISTS scoring_settings_offense;
 CREATE TABLE scoring_settings_offense (
     ID INT NOT NULL UNIQUE,
     pass_att DECIMAL(4,2) NOT NULL DEFAULT 0,
@@ -99,7 +107,11 @@ CREATE TABLE scoring_settings_offense (
     fum_lost DECIMAL (4,2) NOT NULL DEFAULT -2,
     misc_td DECIMAL (4,2) NOT NULL DEFAULT 6,
     two_point DECIMAL (4,2) NOT NULL DEFAULT 2,
-    two_point_pass DECIMAL (4,2) NOT NULL DEFAULT 2
+    two_point_pass DECIMAL (4,2) NOT NULL DEFAULT 2,
+    FOREIGN KEY (ID)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
 
 /* after some reflection, we're only really going to have these settings called all at
@@ -110,8 +122,6 @@ teams.  We'll also replace the scaling yard thresholds (like the points allowed)
 have the defense start with a bonus, that diminishes for every yard gained.  So default
 you get 3 points for 0 yards, and start going negative when the defense gives up 300 yards.
 */
-
-DROP TABLE IF EXISTS scoring_settings_defense;
 CREATE TABLE scoring_settings_defense (
     ID INT NOT NULL UNIQUE,
     touchdown DECIMAL (4,2) NOT NULL DEFAULT 6,
@@ -126,21 +136,28 @@ CREATE TABLE scoring_settings_defense (
     points_34 DECIMAL (4,2) NOT NULL DEFAULT -1,
     points_35 DECIMAL (4,2) NOT NULL DEFAULT -4,
     yardBonus DECIMAL (4,2) NOT NULL DEFAULT 3,
-    yards DECIMAL (4,2) NOT NULL DEFAULT -0.01
+    yards DECIMAL (4,2) NOT NULL DEFAULT -0.01,
+    FOREIGN KEY (ID)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
 
 /*
 For the time being we'll just inlude kicker stats.  Returns can be covered by defensive touchdowns
 until IDP is implemented.
 */
-DROP TABLE IF EXISTS scoring_settings_special;
 CREATE TABLE scoring_settings_special (
     ID INT NOT NULL UNIQUE,
     fg_29 DECIMAL (4,2) NOT NULL DEFAULT 3,
     fg_39 DECIMAL (4,2) NOT NULL DEFAULT 3,
     fg_49 DECIMAL (4,2) NOT NULL DEFAULT 3,
     fg_50 DECIMAL (4,2) NOT NULL DEFAULT 3,
-    extra_point DECIMAL (4,2) NOT NULL DEFAULT 1
+    extra_point DECIMAL (4,2) NOT NULL DEFAULT 1,
+    FOREIGN KEY (ID)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );
 
 
@@ -161,8 +178,11 @@ like anon invites, but I think this works.  We'll take the email and the league 
 wish to join.  
 */
 
-DROP TABLE IF EXISTS invites_0;
 CREATE TABLE invites_0 (
     league INT NOT NULL,
-    email VARCHAR(256) NOT NULL
+    email VARCHAR(256) NOT NULL,
+    FOREIGN KEY (league)
+        REFERENCES league(ID)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 );

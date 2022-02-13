@@ -22,8 +22,14 @@ func TestMain(m *testing.M) {
 	store.ConnectDB("testfsgo")
 	db := store.GetDB()
 	//create/clear testfsgo database
+	//./store/cleaner.sql
+	err := store.BatchSQLFromFile(os.Getenv("TableCleaner"), db)
+	if err != nil {
+		fmt.Println("league batch: ", err)
+		os.Exit(1)
+	}
 	//./store/league.sql
-	err := store.BatchSQLFromFile(os.Getenv("FSLSA"), db)
+	err = store.BatchSQLFromFile(os.Getenv("FSLSA"), db)
 	if err != nil {
 		fmt.Println("league batch: ", err)
 		os.Exit(1)

@@ -34,9 +34,7 @@ function Draft (props) {
       'ws://' +
             window.location.host +
             '/ws/draft/' +
-            props.league.ID +
-            '?userID=' +
-            User.ID
+            props.league.ID
     )
     const initSmack = props.teams.map(t => { return { team: t.ID, smack: '' } })
     setSmacks(initSmack)
@@ -595,39 +593,39 @@ function DraftBoard (props) {
       const picks = props.history.filter(p => p.Team === props.teams[i].ID)
       const roster = picks.map(pick => props.players.find(p => p.ID === pick.Player))
       teamSummaries.push(<TeamSummary
-                                team={props.teams[i]}
-                                roster={roster}
-                                currentPick={props.currentPick}
-                                max={props.rounds * props.teams.length}/>)
+                          team={props.teams[i]}
+                          roster={roster}
+                          currentPick={props.currentPick}
+                          max={props.rounds * props.teams.length}/>)
     }
     return teamSummaries
   } else {
     const drafting = props.history[props.currentPick]
     if (props.focus.context === 'player') {
       return <PBio player={props.focus.data}
-                selectPlayer={props.selectPlayer}
-                drafting={drafting.Team}
-                teamControl={props.teams.find(t => t.Manager.ID === User.ID)}
-                shiftFocus={props.shiftFocus}/>
+              selectPlayer={props.selectPlayer}
+              drafting={drafting.Team}
+              teamControl={props.teams.find(t => t.Manager.ID === User.ID)}
+              shiftFocus={props.shiftFocus}/>
     }
     if (props.focus.context === 'team') {
       const picks = props.history.filter(pick => pick.Team === props.focus.data.ID).filter(p => p.Player != null)
       const roster = picks.map(pick => props.players.find(p => p.ID === pick.Player))
       return <TeamSummary
-                    team={props.focus.data}
-                    roster={roster}
-                    shiftFocus={props.shiftFocus}
-                    currentPick={props.currentPick}
-                    max={props.rounds * props.teams.length}/>
+              team={props.focus.data}
+              roster={roster}
+              shiftFocus={props.shiftFocus}
+              currentPick={props.currentPick}
+              max={props.rounds * props.teams.length}/>
     }
 
     return <DraftSummary
-                history={props.history}
-                currentPick={props.currentPick}
-                teams={props.teams}
-                shiftFocus={props.shiftFocus}
-                players={props.players}
-                rounds={props.rounds}/>
+            history={props.history}
+            currentPick={props.currentPick}
+            teams={props.teams}
+            shiftFocus={props.shiftFocus}
+            players={props.players}
+            rounds={props.rounds}/>
   }
 }
 
@@ -862,39 +860,43 @@ function TeamSummary (props) {
   // let max = Math.max(qbs.length, rbs.length, wrs.length, tes.length)
 
   return (
-            <table className='table table-responsive table text-center'>
-                <thead>
-                {props.currentPick < props.max
-                  ? <tr><td colSpan='5'><div className='d-grid gap-2'>
-                    <button onClick={resetFocus} className='btn btn-danger btn-sm'>Draft Summary</button>
-                </div></td></tr>
-                  : ''
-                }
-                <tr><th colSpan='5'>{props.team.Name}</th></tr>
-                <tr><td colSpan='5'>Manager: {props.team.Manager.name}</td></tr>
-                <tr>
-                    <td></td><th>QB</th><th>RB</th><th>WR</th><th>TE</th>
-                </tr>
-                </thead>
-                <tbody>
-                {/* For spacing, we'll list the first 5 players taken at each position.  is sufficient for show, though future iterations
-                we'll need a more robust solution */}
-                {[...Array(5)].map((_, i) =>
-                    <tr key={'roster_row' + (i + 1).toString()}>
-                        <th>{i + 1}:</th>
-                        <td key={'QB' + (i + 1).toString()}>{i < qbs.length ? qbs[i].Name : ''}</td>
-                        <td key={'RB' + (i + 1).toString()}>{i < rbs.length ? rbs[i].Name : ''}</td>
-                        <td key={'WR' + (i + 1).toString()}>{i < wrs.length ? wrs[i].Name : ''}</td>
-                        <td key={'TE' + (i + 1).toString()}>{i < tes.length ? tes[i].Name : ''}</td>
-                    </tr>
-                )}
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td></td><td>QB Pts: {qbPoints}</td><td> RB pts: {rbPoints}</td><td> WR pts: {wrPoints}</td><td>TE Points: {tePoints}</td>
-                    </tr>
-                </tfoot>
-            </table>
+    <table className='table table-responsive table text-center'>
+      <thead>
+      {props.currentPick < props.max
+        ? <tr>
+            <td colSpan='5'>
+              <div className='d-grid gap-2'>
+                <button onClick={resetFocus} className='btn btn-danger btn-sm'>Draft Summary</button>
+              </div>
+            </td>
+          </tr>
+        : ''
+      }
+      <tr><th colSpan='5'>{props.team.Name}</th></tr>
+      <tr><td colSpan='5'>Manager: {props.team.Manager.name}</td></tr>
+      <tr>
+        <td></td><th>QB</th><th>RB</th><th>WR</th><th>TE</th>
+      </tr>
+      </thead>
+      <tbody>
+      {/* For spacing, we'll list the first 5 players taken at each position.  is sufficient for show, though future iterations
+      we'll need a more robust solution */}
+      {[...Array(5)].map((_, i) =>
+          <tr key={'roster_row' + (i + 1).toString()}>
+            <th>{i + 1}:</th>
+            <td key={'QB' + (i + 1).toString()}>{i < qbs.length ? qbs[i].Name : ''}</td>
+            <td key={'RB' + (i + 1).toString()}>{i < rbs.length ? rbs[i].Name : ''}</td>
+            <td key={'WR' + (i + 1).toString()}>{i < wrs.length ? wrs[i].Name : ''}</td>
+            <td key={'TE' + (i + 1).toString()}>{i < tes.length ? tes[i].Name : ''}</td>
+          </tr>
+      )}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td><td>QB Pts: {qbPoints}</td><td> RB pts: {rbPoints}</td><td> WR pts: {wrPoints}</td><td>TE Points: {tePoints}</td>
+        </tr>
+      </tfoot>
+    </table>
   )
 }
 

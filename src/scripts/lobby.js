@@ -106,7 +106,7 @@ function LeagueDirectory (props) {
 function ActiveLeagues (props) {
   function openLeague (e) {
     e.preventDefault()
-    props.openLeague(e.target.id)
+    props.openLeague(e.target.name)
   }
 
   return (
@@ -119,7 +119,8 @@ function ActiveLeagues (props) {
                 <tr key={'active_' + league.ID}>
                   <td colSpan={2} className='text-center'>{league.Name}</td>
                   <td colSpan={2}>{league.Commissioner}</td>
-                  <td colSpan={1}><button className='btn btn-success btn-sm' id={league.ID} onClick={openLeague}> Rejoin!</button></td>
+                  <td colSpan={1}>
+                    <button className='btn btn-success btn-sm' id={'joinLeague' + league.ID} name={league.ID} onClick={openLeague}> Rejoin!</button></td>
                 </tr>
             )}
           </tbody>
@@ -132,7 +133,7 @@ function Invitations (props) {
 
   function selectInvite (e) {
     e.preventDefault()
-    const numeral = parseInt(e.target.id, 10)
+    const numeral = parseInt(e.target.name, 10)
     setSelection(numeral)
   }
 
@@ -151,7 +152,7 @@ function Invitations (props) {
                     <tr key={'leagues_' + league.ID}>
                         <td colSpan={2}>{league.Name}</td>
                         <td colSpan={2}>{league.Commissioner}</td>
-                        <td colSpan={1}><button className='btn btn-success btn-sm' id={league.ID} onClick={selectInvite}>Join!</button></td>
+                        <td colSpan={1}><button className='btn btn-success btn-sm' id={'inviteJoin' + league.ID} name={league.ID} onClick={selectInvite}>Join!</button></td>
                     </tr>
                 )}
               </tbody>
@@ -204,7 +205,7 @@ function LeagueWizard (props) {
   function createLeague (e) {
     e.preventDefault()
     const fetchData = async () => {
-      const response = await fetch('/createleague', {
+      const response = await fetch('/league/create', {
         method: 'POST',
         body: JSON.stringify({ maxOwner: maxOwner, league: leagueName, team: teamName }),
         headers: {
@@ -277,7 +278,7 @@ function TeamWizard (props) {
   function submit (e) {
     e.preventDefault()
     const fetchData = async () => {
-      const response = await fetch('/joinleague', {
+      const response = await fetch('/league/join', {
         method: 'POST',
         body: JSON.stringify({ league: props.league, team: teamName }),
         headers: {

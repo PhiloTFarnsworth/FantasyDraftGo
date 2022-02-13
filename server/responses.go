@@ -171,29 +171,31 @@ func register(c *gin.Context) {
 	//clearing the session keys, but at least for our cookie this is sufficient.
 	session.Set("user", userInfo.ID)
 	session.Save()
+	stringID := strconv.FormatInt(userInfo.ID, 10)
 
 	//Create User-league reference table
-	refName := "leagues_" + strconv.FormatInt(userInfo.ID, 10)
-	//Get rid of any weird tables I may or may not be littering the database with.
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + refName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	_, err = tx.Exec("CREATE TABLE " + refName + " (league INT NOT NULL UNIQUE)")
+	_, err = tx.Exec("CREATE TABLE leagues_" +
+		stringID +
+		` (league INT NOT NULL UNIQUE,
+		FOREIGN KEY (league)
+			REFERENCES league(ID)
+			ON UPDATE CASCADE
+			ON DELETE CASCADE
+		)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//Create invites table for user
-	invitesName := "invites_" + strconv.FormatInt(userInfo.ID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + invitesName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	_, err = tx.Exec("CREATE TABLE " + invitesName + " (league INT NOT NULL UNIQUE)")
+	_, err = tx.Exec("CREATE TABLE invites_" +
+		stringID +
+		` (league INT NOT NULL UNIQUE,
+		FOREIGN KEY (league)
+			REFERENCES league(ID)
+			ON UPDATE CASCADE
+			ON DELETE CASCADE
+		)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
@@ -240,7 +242,7 @@ func register(c *gin.Context) {
 		//We got their outstanding leagues, we need to insert those league ids into invites_userid
 		//and the user ids into league_leagueid_invites
 		_, err = tx.Exec("INSERT INTO invites_"+
-			strconv.FormatInt(userInfo.ID, 10)+
+			stringID+
 			" (league) VALUES (?)", leagues[i])
 		if err != nil {
 			c.JSON(http.StatusBadRequest, err.Error())
@@ -326,6 +328,7 @@ func createLeague(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
+	stringID := strconv.FormatInt(leagueID, 10)
 	//With our ID, we can populate the league's position amongst the other settings tables.  While we
 	//could have our users define the league better before creation, I'm split on whether it isn't just better
 	//to expose all the customization options after the league has been created.  To be continued...
@@ -359,76 +362,85 @@ func createLeague(c *gin.Context) {
 		return
 	}
 
-	//Now we need to create some League specific tables.  First off, we have the draft table.
-	draftName := "draft_" + strconv.FormatInt(leagueID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + draftName)
+	_, err = tx.Exec("CREATE TABLE teams_" +
+		stringID +
+		` (ID INT AUTO_INCREMENT NOT NULL UNIQUE PRIMARY KEY, 
+		name VARCHAR(128) NOT NULL, 
+		manager INT NOT NULL, 
+		slot INT NOT NULL DEFAULT 0,
+		FOREIGN KEY (manager)
+			REFERENCES user(ID)
+			ON UPDATE CASCADE
+			ON DELETE CASCADE)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + draftName + " (ID INT NOT NULL UNIQUE, player INT NOT NULL UNIQUE, team INT NOT NULL, primary key (`ID`))")
+	_, err = tx.Exec("CREATE TABLE draft_" +
+		stringID +
+		` (ID INT NOT NULL UNIQUE PRIMARY KEY, 
+			player INT NOT NULL UNIQUE, 
+			team INT NOT NULL,
+			FOREIGN KEY (team)
+				REFERENCES teams_` +
+		stringID +
+		`(ID)
+				ON UPDATE CASCADE
+				ON DELETE CASCADE)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	//league roster table
-	rosterName := "roster_" + strconv.FormatInt(leagueID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + rosterName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	_, err = tx.Exec("CREATE TABLE " + rosterName + " (player INT NOT NULL UNIQUE, active BOOL DEFAULT 0, team INT NOT NULL)")
+	_, err = tx.Exec("CREATE TABLE roster_" +
+		stringID +
+		` (player INT NOT NULL UNIQUE, 
+		active BOOL DEFAULT 0, 
+		team INT NOT NULL,
+		FOREIGN KEY (team)
+			REFERENCES teams_` +
+		stringID + `(ID) 
+			ON UPDATE CASCADE
+			ON DELETE CASCADE,
+		FOREIGN KEY (player)
+			REFERENCES player(ID)
+			ON UPDATE CASCADE
+			ON DELETE CASCADE)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//league transaction table
-	transactionName := "transactions_" + strconv.FormatInt(leagueID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + transactionName)
+	_, err = tx.Exec("CREATE TABLE transactions_" +
+		stringID +
+		` (ID INT AUTO_INCREMENT NOT NULL UNIQUE PRIMARY KEY, 
+			player INT NOT NULL, 
+			team INT NOT NULL, 
+			source INT NOT NULL, 
+			associated INT DEFAULT 0, 
+			initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (player)
+				REFERENCES player(ID)
+				ON UPDATE CASCADE
+				ON DELETE CASCADE)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	_, err = tx.Exec("CREATE TABLE " + transactionName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, player INT NOT NULL, team INT NOT NULL, source INT NOT NULL, associated INT DEFAULT 0, initiated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, primary key(`ID`))")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	//Team table
-	teamTableName := "teams_" + strconv.FormatInt(leagueID, 10)
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + teamTableName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	_, err = tx.Exec("CREATE TABLE " + teamTableName + " (ID INT AUTO_INCREMENT NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, manager INT NOT NULL, slot INT NOT NULL DEFAULT 0, primary key(`ID`))")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
 	//League Invites table
-	leagueInvitesName := "league_" + strconv.FormatInt(leagueID, 10) + "_invites"
-	_, err = tx.Exec("DROP TABLE IF EXISTS " + leagueInvitesName)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-	_, err = tx.Exec("CREATE TABLE " + leagueInvitesName + " (user INT NOT NULL)")
+	_, err = tx.Exec("CREATE TABLE league_" +
+		stringID +
+		`_invites (user INT NOT NULL)`)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	//With Team Table created, we need to insert our first team.
-	_, err = tx.Exec("INSERT INTO "+teamTableName+" (name, manager) VALUES (?, ?)", s.TeamName, user)
+	_, err = tx.Exec("INSERT INTO teams_"+stringID+" (name, manager) VALUES (?, ?)", s.TeamName, user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
