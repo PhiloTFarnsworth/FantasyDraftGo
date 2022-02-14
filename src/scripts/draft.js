@@ -41,10 +41,10 @@ function Draft (props) {
   }, [])
   // we wait for draftPool and DraftHistory to be filled, then load the page
   useEffect(() => {
-    if (draftPool.length > 0 && draftHistory.length > 0) {
+    if (draftPool.length > 0 && draftHistory.length > 0 && userStatus !== []) {
       setLoading(false)
     }
-  }, [draftPool, draftHistory])
+  }, [draftPool, draftHistory, userStatus])
 
   // Finally, since I was getting funky results doing this in the above useEffect, we'll wait for loading
   // to get updated, which by then we should be reasonably sure that draftPool and DraftHistory have actually

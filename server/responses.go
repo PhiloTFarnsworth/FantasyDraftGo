@@ -786,7 +786,18 @@ func InviteUser(c *gin.Context) {
 				return
 			}
 
-			//TODO: SEND EMAIL TO GET USER TO REGISTER
+			// For the time being, let's just mock how we would send an email
+
+			// to := []string{"recipient@example.net"}
+			// msg := []byte("To: recipient@example.net\r\n" +
+			// 	"Subject: Someone has invited you to a FantasyDraft fantasy football league\r\n" +
+			// 	"\r\n" +
+			// 	"You have been invited to a league at FantasyDraft!  Please go to FantasyDraft.com and register with this email
+			// to join your league today!\r\n")
+			// err := smtp.SendMail("mail.example.com:25", auth, "sender@example.org", to, msg)
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
 			if subErr = tx.Commit(); subErr != nil {
 				c.JSON(http.StatusBadRequest, subErr.Error())
 			}
@@ -890,7 +901,19 @@ func revokeInvite(c *gin.Context) {
 					return
 				}
 
-				//TODO: send email telling user invitation has been revoked (ouch)
+				//TODO: send email telling user invitation has been revoked (ouch).  Needs an extra think to consider what information
+				//we give about the league when the use is getting these emails, but that's a question for another day
+
+				// to := []string{"recipient@example.net"}
+				// msg := []byte("To: recipient@example.net\r\n" +
+				// 	"Subject: Nevermind!\r\n" +
+				// 	"\r\n" +
+				// 	"You have been disinvited from a league in FantasyDraft.  That's rough.\r\n")
+				// err := smtp.SendMail("mail.example.com:25", auth, "sender@example.org", to, msg)
+				// if err != nil {
+				// 	log.Fatal(err)
+				// }
+
 				if subErr = tx.Commit(); subErr != nil {
 					c.JSON(http.StatusBadRequest, subErr.Error())
 					return

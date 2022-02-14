@@ -38,7 +38,7 @@ const config = {
     baseURL: 'http://127.0.0.1:8000/',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry'
+    trace: 'retain-on-failure'
   },
 
   /* Configure projects for major browsers */
@@ -96,11 +96,6 @@ const config = {
   /* Folder for test artifacts such as screenshots, videos, traces, etc. */
   // outputDir: 'test-results/',
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   port: 3000,
-  // },
 }
 
 module.exports = config

@@ -607,6 +607,14 @@ func TestFrontendSetup(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("wanted 200 code got %v", w.Code)
 	}
+	//Let's make sure that unopened invites appear, we'll add barry but we won't lock league
+	w, err = postJSON(a, "/league/invite", `{"invitee":"barry@mail.com","league":2}`, http.StatusOK)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("want %v got %v", http.StatusOK, w.Code)
+	}
 
 	//And we'll also have barry create a league, invite marry and lock league to the league settings
 	//page
