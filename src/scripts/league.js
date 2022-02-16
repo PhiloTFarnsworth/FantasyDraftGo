@@ -221,8 +221,8 @@ function LeagueHome (props) {
         <div className='text-center'>
           <div className='d-grid'><button className='btn btn-danger' onClick={closeLeague}>Return to Dashboard</button></div>
                     <h1 className='text-capitalize display-4 mb-2'>{leagueProps.name} League Page</h1>
-          <div className='border border-warning p-1 mb-3'>
-          <h2 className='display-5'>Teams</h2>
+          <div className='bg-success rounded text-white p-1 mb-3'>
+          <h2 className='display-5 mb-2'>Teams</h2>
             {teams.map(team => <TeamBox key={team.ID + '_team'} league={leagueProps.ID} team={team} updateTeam={updateTeam}/>)}
           </div>
           {User.ID === commissioner.ID
@@ -293,7 +293,7 @@ function TeamBox (props) {
             <label className='form-label' htmlFor='teamNameEdit'>Edit Team Name</label>
           </div>
           <div className='col d-grid'>
-            <button className='btn btn-success btn-sm' onClick={submit}>Edit!</button>
+            <button className='btn btn-warning text-black btn-sm' onClick={submit}>Edit!</button>
             <button className='btn btn-danger btn-sm' onClick={toggleEdit}>Cancel Edit</button>
           </div>
         </div>

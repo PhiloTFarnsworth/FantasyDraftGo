@@ -238,7 +238,7 @@ function LeagueWizard (props) {
     )
   }
   return (
-    <div>
+    <div className='bg-warning p-4 rounded'>
       <div className='d-grid'>
         <button className='btn btn-danger btn-sm' onClick={toggleFocus}>Close League Wizard</button>
       </div>

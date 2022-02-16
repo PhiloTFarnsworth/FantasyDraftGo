@@ -1060,7 +1060,7 @@ function ChatHighlight (props) {
   return (
       <div className='row mt-3' id='chatHighlight'>
         <div className='col-3'>
-          <p className='mb-0 text-break fw-bold'>{props.message.team.Manager.name}</p>
+          <p className='mb-0 fw-bold'>{props.message.team.Manager.name}</p>
         </div>
         <div className='col-9'>
           <p className='mb-0 text-break'>{props.message.message}</p>

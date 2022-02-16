@@ -3,7 +3,9 @@
 
 ## A fantasy football draft with Gin and React
 
-FantasyDraftGo is an elaboration on [FantasyDraft](https://github.com/PhiloTFarnsworth/FantasyDraftPrototype), rewritten using Go's Gin web framework and React.    
+FantasyDraftGo is an elaboration on [FantasyDraft](https://github.com/PhiloTFarnsworth/FantasyDraftPrototype), rewritten using Go's Gin web framework and React.
+
+A demonstration of FantasyDraftGo's abilities can be seen [on Youtube.](https://youtu.be/L6jHyUtb-ZA)
 
 ### What can FantasyDraftGo do?
 Users can

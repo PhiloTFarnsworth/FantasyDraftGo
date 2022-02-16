@@ -40,13 +40,11 @@ func TestMain(m *testing.M) {
 		fmt.Println("user batch: ", err)
 		os.Exit(1)
 	}
-
+	//Import players
 	playerimport.Import("testfsgo")
 
 	r = server.NewRouter()
-
 	//Fake path to retrieve csrf token
 	r.GET("csrftoken", func(c *gin.Context) { c.String(http.StatusOK, csrf.GetToken(c)) })
-
 	os.Exit(m.Run())
 }
