@@ -23,19 +23,19 @@ func TestMain(m *testing.M) {
 	db := store.GetDB()
 	//create/clear testfsgo database
 	//./store/cleaner.sql
-	err := store.BatchSQLFromFile(os.Getenv("TableCleaner"), db)
+	err := store.BatchSQLFromFile(os.Getenv("FSGOPATH")+"\\store\\cleaner.sql", db)
 	if err != nil {
 		fmt.Println("league batch: ", err)
 		os.Exit(1)
 	}
 	//./store/league.sql
-	err = store.BatchSQLFromFile(os.Getenv("FSLSA"), db)
+	err = store.BatchSQLFromFile(os.Getenv("FSGOPATH")+"\\store\\league.sql", db)
 	if err != nil {
 		fmt.Println("league batch: ", err)
 		os.Exit(1)
 	}
 	//./store/user.sql
-	err = store.BatchSQLFromFile(os.Getenv("FSUSA"), db)
+	err = store.BatchSQLFromFile(os.Getenv("FSGOPATH")+"\\store\\user.sql", db)
 	if err != nil {
 		fmt.Println("user batch: ", err)
 		os.Exit(1)

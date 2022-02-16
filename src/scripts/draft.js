@@ -500,7 +500,7 @@ function DraftPool (props) {
             <colgroup>
               {props.headers.map(h => {
                 if (expandables.includes(h.raw)) {
-                  return h.raw !== sorted ? <col/> : <col className='bg-warning'/>
+                  return h.raw !== sorted ? <col key={h.raw}/> : <col key={h.raw} className='bg-warning'/>
                 }
                 return null
               })}
@@ -678,7 +678,7 @@ function DraftSummary (props) {
                                 team={row.Team}
                                 onClick={teamFocus}>{props.teams.find(team => row.Team === team.ID).Name}</button>
                             </div></td>
-                            <td>Pick: {row.Slot + 1}</td>
+                            <td>R:{Math.floor(row.Slot / props.teams.length) + 1} P:{(row.Slot % props.teams.length) + 1}</td>
                             <td>{row.Player === null ? 'tbd' : props.players.find(player => player.ID === row.Player).Name}</td>
                         </tr>
                     )}
@@ -917,11 +917,14 @@ function DraftOrder (props) {
   if (props.userStatus === []) {
     return null
   }
+  if (props.history.length === 0) {
+    return null
+  }
 
   if (props.currentPick >= draftMax) {
     return null
   }
-  for (let i = props.currentPick; i < props.currentPick + props.teams.length + 16; i++) {
+  for (let i = props.currentPick; i < props.currentPick + (props.teams.length * 2); i++) {
     const round = Math.floor(i / props.teams.length) + 1
     const pick = (i % props.teams.length) + 1
     let highlight = ''
@@ -1057,7 +1060,7 @@ function ChatHighlight (props) {
   return (
       <div className='row mt-3' id='chatHighlight'>
         <div className='col-3'>
-          <p className='mb-0 text-break'>{props.message.team.Manager.name}:</p>
+          <p className='mb-0 text-break fw-bold'>{props.message.team.Manager.name}</p>
         </div>
         <div className='col-9'>
           <p className='mb-0 text-break'>{props.message.message}</p>

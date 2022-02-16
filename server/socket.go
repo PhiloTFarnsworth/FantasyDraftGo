@@ -327,7 +327,6 @@ func (h *hub) run() {
 
 			if err = tx.Commit(); err != nil {
 				fmt.Println(err)
-				fmt.Print("why?")
 			}
 
 			//What do we want to broadcast?  That the player has been taken by a team at a certain pick.

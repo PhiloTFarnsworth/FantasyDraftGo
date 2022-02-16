@@ -193,12 +193,12 @@ function LeagueHome (props) {
                     <div className='d-grid'><button className='btn btn-danger' onClick={closeLeague}>Return to Dashboard</button></div>
                     <h1 className='text-capitalize display-4 mb-2'>{leagueProps.name} League Page</h1>
                     <h2 className='display-5 mb-2'>League Invitations</h2>
-                    <div className='border border-warning p-1 mb-3'>
+                    <div className='bg-success rounded text-white p-1 mb-3'>
                     <h3 className='display-6 mb-2'>Teams Confirmed</h3>
                     {teams.map(team => <TeamBox key={team.ID + '_team'} league={leagueProps.ID} team={team} updateTeam={updateTeam}/>)}
                     </div>
                     {invites.length > 0
-                      ? <div className='border border-warning p-1 mb-3'>
+                      ? <div className='bg-warning rounded p-1 mb-3'>
                           <h3 className='display-6 mb-2'>Users Invited</h3>
                           {invites.map((invite, i) => i + teams.length < leagueProps.maxOwner
                             ? <InviteBox key={'invite_' + i} index={i} commissioner={commissioner} invite={invite} league={leagueProps.ID} />
@@ -210,8 +210,10 @@ function LeagueHome (props) {
                     {openSpots === 0 && User.ID === commissioner.ID
                       ? <div className='d-grid mb-3'><button className='btn btn-success' onClick={lockLeague}>Lock League</button></div>
                       : ''}
-                    <h2 className='display-5 mb-2'>Review League Settings</h2>
+                    <div className='p-2 bg-success rounded'>
+                    <h2 className='display-5 mb-2 text-white'>Review League Settings</h2>
                     <LeagueSettings league={leagueProps} commissioner={commissioner} setLeague={setLeagueProps} />
+                    </div>
                 </div>
       )
     case 'PREDRAFT':
@@ -299,14 +301,14 @@ function TeamBox (props) {
     )
   } else {
     return (
-      <div id={props.team.ID + '_team'} className='row m-1 p-3 border-top border-warning align-items-center rounded'>
-        <div className='col border-end border-success overflow-visible'>
+      <div id={props.team.ID + '_team'} className='row m-1 p-3 border-top border-warning align-items-center fw-bold'>
+        <div className='col border-end border-warning overflow-visible'>
           <p className='m-0'>{props.team.Name}</p>
         </div>
-        <div className='col border-end border-success overflow-visible'>
+        <div className='col border-end border-warning overflow-visible'>
           <p className='m-0'>{props.team.Manager.name}</p>
         </div>
-        <div className='col border-end border-success overflow-visible'>
+        <div className='col border-end border-warning overflow-visible'>
           <p className='m-0'>{props.team.Manager.email}</p>
         </div>
         <div className='col d-grid overflow-visible'>
@@ -407,7 +409,7 @@ function InviteBox (props) {
     )
   } else {
     return (
-      <div className='row m-1 p-3 border-top border-warning align-items-center'>
+      <div className='row m-1 p-3 border-top border-success align-items-center fw-bold'>
         <div className='col border-end border-success overflow-visible'>
           <p className='m-0'>{completeInvite.name}</p>
         </div>
@@ -718,8 +720,7 @@ function DraftSettings (props) {
           const today = new Date(Date.now()).toISOString().split('T')
           const split = value.split('T')
           protoForm.push(
-            <div className='row'>
-
+            <div key={'draft_' + key} className='row'>
               <div className='col'>
                 <input type="date"
                 id={'draft_' + key + '_date'}
@@ -746,7 +747,7 @@ function DraftSettings (props) {
         default: {
           if (key !== 'ID') {
             protoForm.push(
-            <div key="draft_key" className='form-floating'>
+            <div key={'draft_' + key} className='form-floating'>
               <input
               className='form-control'
               type="text"
@@ -822,14 +823,14 @@ function DraftSettings (props) {
     const protoForm = []
     let iHead = 0
     Object.entries(props.settings.scoring).forEach(([key, value]) => {
-      protoForm.push(<div className='row mb-1 pt-1 text-capitalize text-white border-top border-warning border-4'><h4>{key}</h4></div>)
+      protoForm.push(<div key={'header_score_' + key} className='row mb-1 pt-1 text-capitalize text-white border-top border-warning border-4'><h4>{key}</h4></div>)
       Object.entries(value).forEach(([key2, value2]) => {
         // Quick and dirty, we'll create individual headers for each type of stat, which will allow us to trim
         // down the floating labels, which... aren't ideal but will look nice in the demo.
         const placeholders = ['Pass', 'Rush', 'Rec', 'Fumble', 'Touch', 'Shut', 'Yard', 'Fg']
         if (key2.startsWith(placeholders[iHead])) {
           protoForm.push(
-            <div className='row mb-1 pt-1 text-white border-top border-warning'><h5>{scoringHeaders[placeholders[iHead]]}</h5></div>
+            <div key={'display_header_setting_' + key + '_' + key2 } className='row mb-1 pt-1 text-white border-top border-warning'><h5>{scoringHeaders[placeholders[iHead]]}</h5></div>
           )
           iHead += 1
           // Just so we don't pop out the end of the array
@@ -839,7 +840,7 @@ function DraftSettings (props) {
         }
         if (key2 !== 'ID') {
           protoForm.push(
-          <div className='col form-floating mb-2' style={{ minWidth: '26%' }}>
+          <div key={'score_setting_' + key + '_' + key2} className='col form-floating mb-2' style={{ minWidth: '26%' }}>
             <input
               className='form-control'
               type="number"

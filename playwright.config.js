@@ -1,11 +1,9 @@
 // @ts-check
 const { devices } = require('@playwright/test')
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
+// Just a note, we tend to have some issues with Webkit, which requires multiple tests.  Need to verify that they can get to draft
+// which for whatever reason is flaky in our tests.  There also appears to be an error with layout when held vertical, though I
+// haven't found a way to have the layout tested with a horizontal phone layout.
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -24,8 +22,7 @@ const config = {
   },
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: 3,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -57,40 +54,44 @@ const config = {
       }
     },
 
+    // We have a strange error with webkit I haven't been able to diagnose where webkit browsers appear to
+    // update react states in a different way then they do in chromium or firefox.  Without access to a safari
+    // browser, I'm not entirely sure why it is failing.  For the time being, 2 out of 3 ain't bad.
+
     {
       name: 'webkit',
       use: {
         ...devices['Desktop Safari']
       }
-    }
+    },
 
     /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: {
-    //     ...devices['Pixel 5'],
-    //   },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: {
-    //     ...devices['iPhone 12'],
-    //   },
-    // },
+    {
+      name: 'Mobile Chrome',
+      use: {
+        ...devices['Pixel 5']
+      }
+    },
+    {
+      name: 'Mobile Safari',
+      use: {
+        ...devices['iPhone 12']
+      }
+    },
 
     /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: {
-    //     channel: 'msedge',
-    //   },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: {
-    //     channel: 'chrome',
-    //   },
-    // },
+    {
+      name: 'Microsoft Edge',
+      use: {
+        channel: 'msedge'
+      }
+    },
+    {
+      name: 'Google Chrome',
+      use: {
+        channel: 'chrome'
+      }
+    }
   ]
 
   /* Folder for test artifacts such as screenshots, videos, traces, etc. */

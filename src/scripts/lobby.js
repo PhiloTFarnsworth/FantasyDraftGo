@@ -112,8 +112,10 @@ function ActiveLeagues (props) {
   return (
         <table className='table text-center'>
           <thead>
-          <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
-              </thead>
+            <tr>
+              <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
+            </tr>
+          </thead>
           <tbody>
             {props.leagues.map(league =>
                 <tr key={'active_' + league.ID}>
@@ -145,7 +147,9 @@ function Invitations (props) {
     return (
             <table className='table text-center'>
               <thead>
-                <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
+                <tr>
+                  <th colSpan={2}>League</th><th colSpan={2}>Commissioner</th><th colSpan={1}></th>
+                </tr>
               </thead>
               <tbody>
                 {props.leagues.map(league =>

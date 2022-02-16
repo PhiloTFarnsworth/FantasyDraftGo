@@ -40,9 +40,6 @@ func index(c *gin.Context) {
 	//Whenever anyone hits the index, we want to verify they have a user ID
 	session := sessions.Default(c)
 
-	//Whenever I need to nuke the development database, uncomment this
-	//playerimport.Import("fsgo")
-
 	var user AccountInfo
 	if session.Get("user") != nil {
 		user.ID = session.Get("user").(int64)
@@ -1139,147 +1136,16 @@ type DraftSettings struct {
 	Rounds     int
 }
 
-type PositionalSettings struct {
-	ID        int
-	Kind      string
-	QB        int
-	RB        int
-	WR        int
-	TE        int
-	Flex      int
-	Bench     int
-	Superflex int
-	Def       int
-	K         int
-}
-
-func (s *PositionalSettings) CountPositions() int {
-	return s.QB + s.RB + s.WR + s.TE + s.Flex + s.Bench + s.Superflex + s.Def + s.K
-}
-
-func (s *PositionalSettings) ScanRow(r scanners.Row) error {
-	return r.Scan(&s.ID,
-		&s.Kind,
-		&s.QB,
-		&s.RB,
-		&s.WR,
-		&s.TE,
-		&s.Flex,
-		&s.Bench,
-		&s.Superflex,
-		&s.Def,
-		&s.K)
-}
-
-type ScoringSettingsOff struct {
-	ID                 int
-	PassAttempt        float64
-	PassCompletion     float64
-	PassYard           float64
-	PassTouchdown      float64
-	PassInterception   float64
-	PassSack           float64
-	RushAttempt        float64
-	RushYard           float64
-	RushTouchdown      float64
-	ReceivingTarget    float64
-	Reception          float64
-	ReceivingYard      float64
-	ReceivingTouchdown float64
-	Fumble             float64
-	FumbleLost         float64
-	MiscTouchdown      float64
-	TwoPointConversion float64
-	TwoPointPass       float64
-}
-
-type ScoringSettingDef struct {
-	ID           int
-	Touchdown    float64
-	Sack         float64
-	Interception float64
-	Safety       float64
-	Shutout      float64
-	Points6      float64
-	Points13     float64
-	Points20     float64
-	Points27     float64
-	Points34     float64
-	Points35     float64
-	YardBonus    float64
-	Yards        float64
-}
-
-type ScoringSettingsSpe struct {
-	ID         int
-	Fg29       float64
-	Fg39       float64
-	Fg49       float64
-	Fg50       float64
-	ExtraPoint float64
-}
-
-func (s *ScoringSettingsSpe) ScanRow(r scanners.Row) error {
-	return r.Scan(
-		&s.ID,
-		&s.Fg29,
-		&s.Fg39,
-		&s.Fg49,
-		&s.Fg50,
-		&s.ExtraPoint)
-}
-
-func (s *ScoringSettingDef) ScanRow(r scanners.Row) error {
-	return r.Scan(
-		&s.ID,
-		&s.Touchdown,
-		&s.Sack,
-		&s.Interception,
-		&s.Safety,
-		&s.Shutout,
-		&s.Points6,
-		&s.Points13,
-		&s.Points20,
-		&s.Points27,
-		&s.Points34,
-		&s.Points35,
-		&s.YardBonus,
-		&s.Yards)
-}
-
-func (s *ScoringSettingsOff) ScanRow(r scanners.Row) error {
-	return r.Scan(
-		&s.ID,
-		&s.PassAttempt,
-		&s.PassCompletion,
-		&s.PassYard,
-		&s.PassTouchdown,
-		&s.PassInterception,
-		&s.PassSack,
-		&s.RushAttempt,
-		&s.RushYard,
-		&s.RushTouchdown,
-		&s.ReceivingTarget,
-		&s.Reception,
-		&s.ReceivingYard,
-		&s.ReceivingTouchdown,
-		&s.Fumble,
-		&s.FumbleLost,
-		&s.MiscTouchdown,
-		&s.TwoPointConversion,
-		&s.TwoPointPass)
-}
-
 type ScoringSettingsTotal struct {
-	O ScoringSettingsOff `json:"offense"`
-	D ScoringSettingDef  `json:"defense"`
-	S ScoringSettingsSpe `json:"special"`
+	O scanners.ScoringSettingsOff `json:"offense"`
+	D scanners.ScoringSettingDef  `json:"defense"`
+	S scanners.ScoringSettingsSpe `json:"special"`
 }
 
 type FullDraftSettings struct {
-	D DraftSettings        `json:"draft"`
-	P PositionalSettings   `json:"positional"`
-	S ScoringSettingsTotal `json:"scoring"`
+	D DraftSettings               `json:"draft"`
+	P scanners.PositionalSettings `json:"positional"`
+	S ScoringSettingsTotal        `json:"scoring"`
 }
 
 //While a little overwhelming, draft settings contains all the big customizable areas for a league.
