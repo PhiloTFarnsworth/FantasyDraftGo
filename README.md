@@ -90,3 +90,8 @@ Contains the React App, with App.js being the entry to FantasyDraftGo, while scr
 
 * ./tests/
 Contains testing for both the backend portion using Go's testing framework, as well as the frontend testing with the Playwright framework.
+
+### How to Run
+FantasyDraftGo can be deployed by gathering all the dependencies located in our go.mod and package.json files, as well as MySQL Server, and adding environmental variables for ```DBUSER```, ```DBPASS``` (credentials for your MySQL server, which should be located on port 3306) and ```FSGOPATH``` (the FantasyDraftGo directory).
+
+The fastest way to set up is to create a 'testfsgo' database in MySQL, then running ```go test.\\...```, which will populate a database with our test cases, as well as automatically build all the tables you'll need to preview FantasyDraftGo.  Finally, run ```go run main.go -test=t```, which will run the server using the test database you have created.
